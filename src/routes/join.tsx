@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, QrCode, KeyRound } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 
 export const Route = createFileRoute("/join")({
@@ -23,14 +23,19 @@ function JoinPage() {
             Rejoindre une partie
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Entrez le code de la partie pour la rejoindre.
+            Choisis comment rejoindre la partie.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Logique métier à venir ici.
-          </p>
+        <div className="flex w-full flex-col gap-4">
+          <Link to="/join/scan" className="rpg-button">
+            <QrCode className="h-6 w-6 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">Scanner un QR Code</span>
+          </Link>
+          <Link to="/join/manual" className="rpg-button">
+            <KeyRound className="h-6 w-6 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">Saisir un code</span>
+          </Link>
         </div>
 
         <Link

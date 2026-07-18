@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LobbyCodeRouteImport } from './routes/lobby.$code'
+import { Route as JoinScanRouteImport } from './routes/join.scan'
+import { Route as JoinManualRouteImport } from './routes/join.manual'
 
 const JoinRoute = JoinRouteImport.update({
   id: '/join',
@@ -28,35 +31,73 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LobbyCodeRoute = LobbyCodeRouteImport.update({
+  id: '/lobby/$code',
+  path: '/lobby/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinScanRoute = JoinScanRouteImport.update({
+  id: '/scan',
+  path: '/scan',
+  getParentRoute: () => JoinRoute,
+} as any)
+const JoinManualRoute = JoinManualRouteImport.update({
+  id: '/manual',
+  path: '/manual',
+  getParentRoute: () => JoinRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
+  '/join/scan': typeof JoinScanRoute
+  '/lobby/$code': typeof LobbyCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
+  '/join/scan': typeof JoinScanRoute
+  '/lobby/$code': typeof LobbyCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
+  '/join/scan': typeof JoinScanRoute
+  '/lobby/$code': typeof LobbyCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create' | '/join'
+  fullPaths:
+    | '/'
+    | '/create'
+    | '/join'
+    | '/join/manual'
+    | '/join/scan'
+    | '/lobby/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/join'
-  id: '__root__' | '/' | '/create' | '/join'
+  to: '/' | '/create' | '/join' | '/join/manual' | '/join/scan' | '/lobby/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/create'
+    | '/join'
+    | '/join/manual'
+    | '/join/scan'
+    | '/lobby/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateRoute: typeof CreateRoute
-  JoinRoute: typeof JoinRoute
+  JoinRoute: typeof JoinRouteWithChildren
+  LobbyCodeRoute: typeof LobbyCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +123,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lobby/$code': {
+      id: '/lobby/$code'
+      path: '/lobby/$code'
+      fullPath: '/lobby/$code'
+      preLoaderRoute: typeof LobbyCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/scan': {
+      id: '/join/scan'
+      path: '/scan'
+      fullPath: '/join/scan'
+      preLoaderRoute: typeof JoinScanRouteImport
+      parentRoute: typeof JoinRoute
+    }
+    '/join/manual': {
+      id: '/join/manual'
+      path: '/manual'
+      fullPath: '/join/manual'
+      preLoaderRoute: typeof JoinManualRouteImport
+      parentRoute: typeof JoinRoute
+    }
   }
 }
+
+interface JoinRouteChildren {
+  JoinManualRoute: typeof JoinManualRoute
+  JoinScanRoute: typeof JoinScanRoute
+}
+
+const JoinRouteChildren: JoinRouteChildren = {
+  JoinManualRoute: JoinManualRoute,
+  JoinScanRoute: JoinScanRoute,
+}
+
+const JoinRouteWithChildren = JoinRoute._addFileChildren(JoinRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
-  JoinRoute: JoinRoute,
+  JoinRoute: JoinRouteWithChildren,
+  LobbyCodeRoute: LobbyCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
