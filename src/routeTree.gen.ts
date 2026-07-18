@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinManualRouteImport } from './routes/join.manual'
 
 const JoinRoute = JoinRouteImport.update({
   id: '/join',
@@ -28,35 +29,43 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JoinManualRoute = JoinManualRouteImport.update({
+  id: '/manual',
+  path: '/manual',
+  getParentRoute: () => JoinRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/join': typeof JoinRoute
+  '/join': typeof JoinRouteWithChildren
+  '/join/manual': typeof JoinManualRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create' | '/join'
+  fullPaths: '/' | '/create' | '/join' | '/join/manual'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/join'
-  id: '__root__' | '/' | '/create' | '/join'
+  to: '/' | '/create' | '/join' | '/join/manual'
+  id: '__root__' | '/' | '/create' | '/join' | '/join/manual'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateRoute: typeof CreateRoute
-  JoinRoute: typeof JoinRoute
+  JoinRoute: typeof JoinRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +91,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/join/manual': {
+      id: '/join/manual'
+      path: '/manual'
+      fullPath: '/join/manual'
+      preLoaderRoute: typeof JoinManualRouteImport
+      parentRoute: typeof JoinRoute
+    }
   }
 }
+
+interface JoinRouteChildren {
+  JoinManualRoute: typeof JoinManualRoute
+}
+
+const JoinRouteChildren: JoinRouteChildren = {
+  JoinManualRoute: JoinManualRoute,
+}
+
+const JoinRouteWithChildren = JoinRoute._addFileChildren(JoinRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
-  JoinRoute: JoinRoute,
+  JoinRoute: JoinRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
