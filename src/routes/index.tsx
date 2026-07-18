@@ -1,24 +1,46 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Swords, Users } from "lucide-react";
+import { LogoTemp } from "@/components/logo-temp";
+import { MobileShell } from "@/components/mobile-shell";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "RPG Table — Accueil" },
+      { name: "description", content: "Rejoignez ou créez une partie de jeu de rôle." },
+      { property: "og:title", content: "RPG Table — Accueil" },
+      { property: "og:description", content: "Rejoignez ou créez une partie de jeu de rôle." },
+    ],
+  }),
+  component: HomePage,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function HomePage() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <MobileShell>
+      <div className="flex flex-1 flex-col items-center justify-center gap-10">
+        <LogoTemp />
+
+        <div className="flex w-full flex-col gap-4">
+          <Link
+            to="/create"
+            className="rpg-button"
+            activeOptions={{ exact: true }}
+          >
+            <Swords className="h-6 w-6 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">Créer une partie</span>
+          </Link>
+
+          <Link
+            to="/join"
+            className="rpg-button"
+            activeOptions={{ exact: true }}
+          >
+            <Users className="h-6 w-6 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">Rejoindre une partie</span>
+          </Link>
+        </div>
+      </div>
+    </MobileShell>
   );
 }
