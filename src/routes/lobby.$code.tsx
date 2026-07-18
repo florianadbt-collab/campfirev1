@@ -130,15 +130,19 @@ function LobbyPage() {
   async function handleShare() {
     const text = `Rejoins ma partie Campfire avec le code ${code} : ${shareUrl}`;
     try {
-      if (typeof navigator !== "undefined" && "share" in navigator) {
-        await (navigator as Navigator & { share: (data: ShareData) => Promise<void> }).share({
+      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & {
+        share?: (data: ShareData) => Promise<void>;
+        clipboard?: { writeText: (t: string) => Promise<void> };
+      }) : null;
+      if (nav?.share) {
+        await nav.share({
           title: "Campfire",
           text,
           url: shareUrl,
         });
         setShareStatus("Partagé !");
-      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
+      } else if (nav?.clipboard) {
+        await nav.clipboard.writeText(text);
         setShareStatus("Copié dans le presse-papier !");
       }
     } catch {
