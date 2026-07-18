@@ -19,27 +19,74 @@ export type Database = {
           created_at: string
           description: string | null
           genre: string | null
+          gm_device_id: string | null
           gm_plays: boolean
           id: string
+          invite_code: string | null
           name: string
+          status: string
         }
         Insert: {
           created_at?: string
           description?: string | null
           genre?: string | null
+          gm_device_id?: string | null
           gm_plays?: boolean
           id?: string
+          invite_code?: string | null
           name: string
+          status?: string
         }
         Update: {
           created_at?: string
           description?: string | null
           genre?: string | null
+          gm_device_id?: string | null
           gm_plays?: boolean
           id?: string
+          invite_code?: string | null
           name?: string
+          status?: string
         }
         Relationships: []
+      }
+      participants: {
+        Row: {
+          device_id: string
+          display_name: string
+          game_id: string
+          id: string
+          is_gm: boolean
+          joined_at: string
+          status: string
+        }
+        Insert: {
+          device_id: string
+          display_name: string
+          game_id: string
+          id?: string
+          is_gm?: boolean
+          joined_at?: string
+          status?: string
+        }
+        Update: {
+          device_id?: string
+          display_name?: string
+          game_id?: string
+          id?: string
+          is_gm?: boolean
+          joined_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
