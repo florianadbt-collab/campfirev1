@@ -17,18 +17,31 @@ export async function joinGameByCode(params: {
   if (gameError) return { error: gameError.message };
   if (!game) return { error: "Aucune partie trouvée avec ce code." };
 
-  const { error: upsertError } = await supabase
+  const { data: existing } = await supabase
     .from("participants")
-    .upsert(
-      {
-        game_id: game.id,
-        device_id: params.deviceId,
+    .select("id")
+    .eq("game_id", game.id)
+    .eq("device_id", params.deviceId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error: updateError } = await supabase
+      .from("participants")
+      .update({
         display_name: params.displayName.trim(),
-        is_gm: false,
         status: "connected",
-      },
-      { onConflict: "game_id,device_id" },
-    );
-  if (upsertError) return { error: upsertError.message };
+      })
+      .eq("id", existing.id);
+    if (updateError) return { error: updateError.message };
+  } else {
+    const { error: insertError } = await supabase.from("participants").insert({
+      game_id: game.id,
+      device_id: params.deviceId,
+      display_name: params.displayName.trim(),
+      is_gm: false,
+      status: "connected",
+    });
+    if (insertError) return { error: insertError.message };
+  }
   return { inviteCode: game.invite_code as string };
 }
