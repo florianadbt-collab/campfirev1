@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  generateInviteCode,
+  getDeviceId,
+  getStoredName,
+  setStoredName,
+} from "@/lib/device";
 import {
   Select,
   SelectContent,
@@ -39,13 +46,14 @@ export const Route = createFileRoute("/create")({
 });
 
 function CreatePage() {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [gmName, setGmName] = useState(getStoredName());
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState<string>("");
   const [gmPlays, setGmPlays] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,24 +61,65 @@ function CreatePage() {
       setError("Le nom de la campagne est obligatoire.");
       return;
     }
-    setLoading(true);
-    setError(null);
-    const { data, error: insertError } = await supabase
-      .from("games")
-      .insert({
-        name: name.trim(),
-        description: description.trim() || null,
-        genre: genre || null,
-        gm_plays: gmPlays,
-      })
-      .select("id")
-      .single();
-    setLoading(false);
-    if (insertError) {
-      setError(insertError.message);
+    if (!gmName.trim()) {
+      setError("Ton pseudo de MJ est obligatoire.");
       return;
     }
-    setCreatedId(data.id);
+    setLoading(true);
+    setError(null);
+    const deviceId = getDeviceId();
+    setStoredName(gmName.trim());
+
+    // Try a few times in case of code collision.
+    let inviteCode = "";
+    let gameId: string | null = null;
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateInviteCode(6);
+      const { data, error: insertError } = await supabase
+        .from("games")
+        .insert({
+          name: name.trim(),
+          description: description.trim() || null,
+          genre: genre || null,
+          gm_plays: gmPlays,
+          invite_code: code,
+          gm_device_id: deviceId,
+          status: "lobby",
+        })
+        .select("id, invite_code")
+        .single();
+      if (!insertError && data) {
+        gameId = data.id;
+        inviteCode = data.invite_code as string;
+        break;
+      }
+      lastError = insertError?.message ?? "Erreur inconnue";
+      if (insertError && !insertError.message.toLowerCase().includes("invite_code")) {
+        break;
+      }
+    }
+
+    if (!gameId || !inviteCode) {
+      setLoading(false);
+      setError(lastError ?? "Impossible de créer la partie.");
+      return;
+    }
+
+    // Add the GM as a participant.
+    const { error: partError } = await supabase.from("participants").insert({
+      game_id: gameId,
+      device_id: deviceId,
+      display_name: gmName.trim(),
+      is_gm: true,
+      status: "connected",
+    });
+    setLoading(false);
+    if (partError) {
+      setError(partError.message);
+      return;
+    }
+    navigate({ to: "/lobby/$code", params: { code: inviteCode } });
   }
 
   return (
@@ -85,16 +134,7 @@ function CreatePage() {
           </p>
         </div>
 
-        {createdId ? (
-          <div className="rounded-2xl border border-rpg/40 bg-card p-6 text-center space-y-3">
-            <p className="font-display text-xl text-rpg">Partie créée !</p>
-            <p className="text-sm text-muted-foreground">Identifiant de la partie :</p>
-            <p className="break-all rounded-lg bg-background/60 px-3 py-2 font-mono text-xs text-foreground">
-              {createdId}
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="space-y-2">
               <Label htmlFor="name">
                 Nom de la campagne <span className="text-rpg">*</span>
@@ -105,6 +145,20 @@ function CreatePage() {
                 onChange={(e) => setName(e.target.value)}
                 maxLength={120}
                 placeholder="Les Chroniques d'Eldoria"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gm-name">
+                Ton pseudo (MJ) <span className="text-rpg">*</span>
+              </Label>
+              <Input
+                id="gm-name"
+                value={gmName}
+                onChange={(e) => setGmName(e.target.value)}
+                maxLength={40}
+                placeholder="Maître du jeu"
                 required
               />
             </div>
@@ -156,7 +210,6 @@ function CreatePage() {
               </span>
             </button>
           </form>
-        )}
 
         <Link to="/" className="rpg-button">
           <ArrowLeft className="h-5 w-5 shrink-0 text-rpg" />
