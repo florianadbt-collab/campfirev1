@@ -7,7 +7,7 @@ export function LogoTemp() {
         <img
           src={logoAsset.url}
           alt="Logo Campfire"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover aspect-square"
         />
       </div>
       <span className="font-display text-2xl font-bold tracking-widest text-foreground">
