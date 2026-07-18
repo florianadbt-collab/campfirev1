@@ -77,15 +77,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" },
-      { title: "RPG Table" },
+      { title: "Campfire" },
       { name: "description", content: "Application mobile pour jouer à des jeux de rôle en ligne." },
-      { name: "author", content: "RPG Table" },
+      { name: "author", content: "Campfire" },
       { name: "theme-color", content: "#0a0a0f" },
-      { property: "og:title", content: "RPG Table" },
+      { property: "og:title", content: "Campfire" },
       { property: "og:description", content: "Application mobile pour jouer à des jeux de rôle en ligne." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@RPGTable" },
+      { name: "twitter:site", content: "@Campfire" },
     ],
     links: [
       {

@@ -6,9 +6,9 @@ import { MobileShell } from "@/components/mobile-shell";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "RPG Table — Accueil" },
+      { title: "Campfire — Accueil" },
       { name: "description", content: "Rejoignez ou créez une partie de jeu de rôle." },
-      { property: "og:title", content: "RPG Table — Accueil" },
+      { property: "og:title", content: "Campfire — Accueil" },
       { property: "og:description", content: "Rejoignez ou créez une partie de jeu de rôle." },
     ],
   }),
