@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      characters: {
+        Row: {
+          abilities: Json
+          attributes: Json
+          backstory: string | null
+          class_profession: string | null
+          created_at: string
+          device_id: string
+          game_id: string
+          id: string
+          inventory: Json
+          is_ready: boolean
+          level: number
+          name: string
+          notes: string | null
+          physical_description: string | null
+          portrait_url: string | null
+          race: string | null
+          updated_at: string
+        }
+        Insert: {
+          abilities?: Json
+          attributes?: Json
+          backstory?: string | null
+          class_profession?: string | null
+          created_at?: string
+          device_id: string
+          game_id: string
+          id?: string
+          inventory?: Json
+          is_ready?: boolean
+          level?: number
+          name?: string
+          notes?: string | null
+          physical_description?: string | null
+          portrait_url?: string | null
+          race?: string | null
+          updated_at?: string
+        }
+        Update: {
+          abilities?: Json
+          attributes?: Json
+          backstory?: string | null
+          class_profession?: string | null
+          created_at?: string
+          device_id?: string
+          game_id?: string
+          id?: string
+          inventory?: Json
+          is_ready?: boolean
+          level?: number
+          name?: string
+          notes?: string | null
+          physical_description?: string | null
+          portrait_url?: string | null
+          race?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "characters_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           created_at: string

@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LobbyCodeRouteImport } from './routes/lobby.$code'
 import { Route as JoinScanRouteImport } from './routes/join.scan'
 import { Route as JoinManualRouteImport } from './routes/join.manual'
+import { Route as CharacterCodeRouteImport } from './routes/character.$code'
 
 const JoinRoute = JoinRouteImport.update({
   id: '/join',
@@ -46,11 +47,17 @@ const JoinManualRoute = JoinManualRouteImport.update({
   path: '/manual',
   getParentRoute: () => JoinRoute,
 } as any)
+const CharacterCodeRoute = CharacterCodeRouteImport.update({
+  id: '/character/$code',
+  path: '/character/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
   '/join': typeof JoinRouteWithChildren
+  '/character/$code': typeof CharacterCodeRoute
   '/join/manual': typeof JoinManualRoute
   '/join/scan': typeof JoinScanRoute
   '/lobby/$code': typeof LobbyCodeRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
   '/join': typeof JoinRouteWithChildren
+  '/character/$code': typeof CharacterCodeRoute
   '/join/manual': typeof JoinManualRoute
   '/join/scan': typeof JoinScanRoute
   '/lobby/$code': typeof LobbyCodeRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
   '/join': typeof JoinRouteWithChildren
+  '/character/$code': typeof CharacterCodeRoute
   '/join/manual': typeof JoinManualRoute
   '/join/scan': typeof JoinScanRoute
   '/lobby/$code': typeof LobbyCodeRoute
@@ -78,16 +87,25 @@ export interface FileRouteTypes {
     | '/'
     | '/create'
     | '/join'
+    | '/character/$code'
     | '/join/manual'
     | '/join/scan'
     | '/lobby/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/join' | '/join/manual' | '/join/scan' | '/lobby/$code'
+  to:
+    | '/'
+    | '/create'
+    | '/join'
+    | '/character/$code'
+    | '/join/manual'
+    | '/join/scan'
+    | '/lobby/$code'
   id:
     | '__root__'
     | '/'
     | '/create'
     | '/join'
+    | '/character/$code'
     | '/join/manual'
     | '/join/scan'
     | '/lobby/$code'
@@ -97,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateRoute: typeof CreateRoute
   JoinRoute: typeof JoinRouteWithChildren
+  CharacterCodeRoute: typeof CharacterCodeRoute
   LobbyCodeRoute: typeof LobbyCodeRoute
 }
 
@@ -144,6 +163,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinManualRouteImport
       parentRoute: typeof JoinRoute
     }
+    '/character/$code': {
+      id: '/character/$code'
+      path: '/character/$code'
+      fullPath: '/character/$code'
+      preLoaderRoute: typeof CharacterCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -163,6 +189,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
   JoinRoute: JoinRouteWithChildren,
+  CharacterCodeRoute: CharacterCodeRoute,
   LobbyCodeRoute: LobbyCodeRoute,
 }
 export const routeTree = rootRouteImport
