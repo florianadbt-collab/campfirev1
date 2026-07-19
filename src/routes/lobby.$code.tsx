@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Crown, Share2, User } from "lucide-react";
+import { ArrowLeft, Crown, Share2, User, ScrollText, CheckCircle2, Clock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { MobileShell } from "@/components/mobile-shell";
@@ -22,6 +22,7 @@ type GameRow = {
   invite_code: string;
   gm_device_id: string | null;
   status: string;
+  gm_plays: boolean;
 };
 
 type Participant = {
@@ -33,10 +34,18 @@ type Participant = {
   joined_at: string;
 };
 
+type CharacterLite = {
+  id: string;
+  device_id: string;
+  name: string;
+  is_ready: boolean;
+};
+
 function LobbyPage() {
   const { code } = Route.useParams();
   const [game, setGame] = useState<GameRow | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [characters, setCharacters] = useState<CharacterLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -54,7 +63,7 @@ function LobbyPage() {
       setLoading(true);
       const { data: g, error: gErr } = await supabase
         .from("games")
-        .select("id, name, invite_code, gm_device_id, status")
+        .select("id, name, invite_code, gm_device_id, status, gm_plays")
         .eq("invite_code", code)
         .maybeSingle();
       if (cancelled) return;
@@ -72,6 +81,13 @@ function LobbyPage() {
         .order("joined_at", { ascending: true });
       if (cancelled) return;
       setParticipants((parts as Participant[]) ?? []);
+
+      const { data: chars } = await supabase
+        .from("characters")
+        .select("id, device_id, name, is_ready")
+        .eq("game_id", g.id);
+      if (cancelled) return;
+      setCharacters((chars as CharacterLite[]) ?? []);
       setLoading(false);
     }
 
@@ -114,6 +130,28 @@ function LobbyPage() {
           setGame((prev) => (prev ? { ...prev, ...(payload.new as GameRow) } : prev));
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "characters", filter: `game_id=eq.${game.id}` },
+        (payload) => {
+          setCharacters((prev) => {
+            if (payload.eventType === "INSERT") {
+              const row = payload.new as CharacterLite;
+              if (prev.some((c) => c.id === row.id)) return prev;
+              return [...prev, row];
+            }
+            if (payload.eventType === "UPDATE") {
+              const row = payload.new as CharacterLite;
+              return prev.map((c) => (c.id === row.id ? { ...c, ...row } : c));
+            }
+            if (payload.eventType === "DELETE") {
+              const row = payload.old as CharacterLite;
+              return prev.filter((c) => c.id !== row.id);
+            }
+            return prev;
+          });
+        },
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -121,6 +159,28 @@ function LobbyPage() {
   }, [game?.id]);
 
   const isGM = !!game && !!deviceId && game.gm_device_id === deviceId;
+
+  const characterByDevice = useMemo(() => {
+    const map = new Map<string, CharacterLite>();
+    for (const c of characters) map.set(c.device_id, c);
+    return map;
+  }, [characters]);
+
+  function playerNeedsCharacter(p: Participant): boolean {
+    if (!game) return false;
+    if (!p.is_gm) return true;
+    return !!game.gm_plays;
+  }
+
+  const allReady =
+    participants.length > 0 &&
+    participants.every((p) => {
+      if (!playerNeedsCharacter(p)) return true;
+      return characterByDevice.get(p.device_id)?.is_ready === true;
+    });
+
+  const myCharacter = deviceId ? characterByDevice.get(deviceId) : undefined;
+  const iNeedCharacter = !!game && (!isGM || game.gm_plays);
 
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -153,6 +213,7 @@ function LobbyPage() {
 
   async function startAdventure() {
     if (!game) return;
+    if (!allReady) return;
     setStarting(true);
     const { error: updErr } = await supabase
       .from("games")
@@ -233,15 +294,43 @@ function LobbyPage() {
           )}
         </div>
 
+        {iNeedCharacter && (
+          <Link
+            to="/character/$code"
+            params={{ code }}
+            className="rpg-button"
+          >
+            <ScrollText className="h-5 w-5 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">
+              {myCharacter?.is_ready
+                ? "Modifier mon personnage"
+                : myCharacter
+                  ? "Continuer mon personnage"
+                  : "Créer mon personnage"}
+            </span>
+          </Link>
+        )}
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg text-foreground">
               Joueurs ({participants.length})
             </h2>
+            <span className="text-xs text-muted-foreground">
+              {
+                participants.filter((p) =>
+                  !playerNeedsCharacter(p) ? true : characterByDevice.get(p.device_id)?.is_ready,
+                ).length
+              }
+              /{participants.length} prêts
+            </span>
           </div>
           <ul className="space-y-2">
             {participants.map((p) => {
               const isMe = p.device_id === deviceId;
+              const needs = playerNeedsCharacter(p);
+              const char = characterByDevice.get(p.device_id);
+              const ready = !needs || char?.is_ready === true;
               return (
                 <li
                   key={p.id}
@@ -264,6 +353,11 @@ function LobbyPage() {
                           <span className="ml-2 text-xs text-muted-foreground">(toi)</span>
                         )}
                       </span>
+                      {char?.name && (
+                        <span className="text-xs italic text-muted-foreground">
+                          {char.name}
+                        </span>
+                      )}
                       <span
                         className={
                           p.is_gm
@@ -276,10 +370,17 @@ function LobbyPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
-                    <span className="text-xs capitalize text-muted-foreground">
-                      {p.status}
-                    </span>
+                    {ready ? (
+                      <span className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {needs ? "Personnage prêt" : "Prêt"}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
+                        <Clock className="h-3.5 w-3.5" />
+                        En préparation
+                      </span>
+                    )}
                   </div>
                 </li>
               );
@@ -293,20 +394,27 @@ function LobbyPage() {
         </div>
 
         {isGM ? (
-          <button
-            type="button"
-            onClick={startAdventure}
-            disabled={starting || game.status === "in_progress"}
-            className="rpg-button disabled:opacity-50"
-          >
-            <span className="font-display tracking-wide">
-              {game.status === "in_progress"
-                ? "Aventure en cours"
-                : starting
-                  ? "Lancement…"
-                  : "Commencer l'aventure"}
-            </span>
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={startAdventure}
+              disabled={starting || game.status === "in_progress" || !allReady}
+              className="rpg-button disabled:opacity-50"
+            >
+              <span className="font-display tracking-wide">
+                {game.status === "in_progress"
+                  ? "Aventure en cours"
+                  : starting
+                    ? "Lancement…"
+                    : "Commencer l'aventure"}
+              </span>
+            </button>
+            {!allReady && game.status !== "in_progress" && (
+              <p className="text-center text-xs text-muted-foreground">
+                En attente que tous les joueurs valident leur personnage.
+              </p>
+            )}
+          </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-5 text-center">
             <p className="font-display text-sm uppercase tracking-widest text-muted-foreground">
