@@ -429,20 +429,22 @@ function LobbyPage() {
 
         {isGM ? (
           <div className="space-y-2">
-            <button
+            {game.status === "in_progress" ? (
+              <Link to="/session/$code" params={{ code }} className="rpg-button">
+                <span className="font-display tracking-wide">Reprendre la session</span>
+              </Link>
+            ) : (
+              <button
               type="button"
               onClick={startAdventure}
-              disabled={starting || game.status === "in_progress" || !allReady}
+              disabled={starting || !allReady}
               className="rpg-button disabled:opacity-50"
             >
               <span className="font-display tracking-wide">
-                {game.status === "in_progress"
-                  ? "Aventure en cours"
-                  : starting
-                    ? "Lancement…"
-                    : "Commencer l'aventure"}
+                {starting ? "Lancement…" : "Commencer l'aventure"}
               </span>
             </button>
+            )}
             {!allReady && game.status !== "in_progress" && (
               <p className="text-center text-xs text-muted-foreground">
                 En attente que tous les joueurs valident leur personnage.
