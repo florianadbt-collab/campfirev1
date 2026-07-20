@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Crown, Share2, User, ScrollText, CheckCircle2, Clock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -43,6 +43,7 @@ type CharacterLite = {
 
 function LobbyPage() {
   const { code } = Route.useParams();
+  const navigate = useNavigate();
   const [game, setGame] = useState<GameRow | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [characters, setCharacters] = useState<CharacterLite[]>([]);
@@ -215,6 +216,36 @@ function LobbyPage() {
     if (!game) return;
     if (!allReady) return;
     setStarting(true);
+
+    // Reuse an active session if one already exists for this game.
+    const { data: existing } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("game_id", game.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    let sessionId = existing?.id ?? null;
+    if (!sessionId) {
+      const { data: created, error: sessErr } = await supabase
+        .from("sessions")
+        .insert({
+          game_id: game.id,
+          status: "active",
+          started_by_device_id: deviceId || null,
+          ai_context: {},
+          history: [],
+        })
+        .select("id")
+        .single();
+      if (sessErr || !created) {
+        setStarting(false);
+        setError(sessErr?.message ?? "Impossible de créer la session.");
+        return;
+      }
+      sessionId = created.id;
+    }
+
     const { error: updErr } = await supabase
       .from("games")
       .update({ status: "in_progress" })
@@ -223,6 +254,9 @@ function LobbyPage() {
     if (updErr) {
       setError(updErr.message);
       return;
+    }
+    if (isGM) {
+      navigate({ to: "/session/$code", params: { code } });
     }
   }
 
