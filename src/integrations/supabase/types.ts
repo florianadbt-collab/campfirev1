@@ -156,6 +156,50 @@ export type Database = {
           },
         ]
       }
+      sessions: {
+        Row: {
+          ai_context: Json
+          created_at: string
+          game_id: string
+          history: Json
+          id: string
+          introduction: string | null
+          started_by_device_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_context?: Json
+          created_at?: string
+          game_id: string
+          history?: Json
+          id?: string
+          introduction?: string | null
+          started_by_device_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_context?: Json
+          created_at?: string
+          game_id?: string
+          history?: Json
+          id?: string
+          introduction?: string | null
+          started_by_device_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
