@@ -19,11 +19,22 @@ function campaignQuery(id: string) {
 
       const { data: players, error: pErr } = await supabase
         .from("campaign_players")
-        .select("user_id, role, status, profiles(id, username, avatar_url)")
+        .select("user_id, role, status")
         .eq("campaign_id", id);
       if (pErr) throw pErr;
 
-      return { campaign, players: players ?? [] };
+      const userIds = (players ?? []).map((p) => p.user_id);
+      let profilesById: Record<string, { id: string; username: string; avatar_url: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles, error: prErr } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .in("id", userIds);
+        if (prErr) throw prErr;
+        for (const pr of profiles ?? []) profilesById[pr.id] = pr;
+      }
+      const enriched = (players ?? []).map((p) => ({ ...p, profile: profilesById[p.user_id] ?? null }));
+      return { campaign, players: enriched };
     },
   };
 }
@@ -104,7 +115,7 @@ function CampaignPage() {
           </h2>
           <ul className="flex flex-col gap-2">
             {data.players.map((p) => {
-              const profile = p.profiles as { id: string; username: string; avatar_url: string | null } | null;
+              const profile = p.profile;
               return (
                 <li
                   key={p.user_id}
