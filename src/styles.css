@@ -134,3 +134,12 @@
 @utility rpg-glow {
   box-shadow: 0 0 40px -12px var(--color-rpg-glow);
 }
+
+@utility rpg-input {
+  @apply w-full rounded-xl border border-rpg/30 bg-card px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground;
+
+  &:focus {
+    border-color: var(--color-rpg);
+    box-shadow: 0 0 0 3px oklch(from var(--color-rpg) l c h / 0.15);
+  }
+}
