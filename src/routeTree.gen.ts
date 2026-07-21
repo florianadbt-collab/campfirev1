@@ -9,145 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as JoinRouteImport } from './routes/join'
-import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessionCodeRouteImport } from './routes/session.$code'
-import { Route as LobbyCodeRouteImport } from './routes/lobby.$code'
-import { Route as JoinScanRouteImport } from './routes/join.scan'
-import { Route as JoinManualRouteImport } from './routes/join.manual'
-import { Route as CharacterCodeRouteImport } from './routes/character.$code'
 
-const JoinRoute = JoinRouteImport.update({
-  id: '/join',
-  path: '/join',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CreateRoute = CreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionCodeRoute = SessionCodeRouteImport.update({
-  id: '/session/$code',
-  path: '/session/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LobbyCodeRoute = LobbyCodeRouteImport.update({
-  id: '/lobby/$code',
-  path: '/lobby/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JoinScanRoute = JoinScanRouteImport.update({
-  id: '/scan',
-  path: '/scan',
-  getParentRoute: () => JoinRoute,
-} as any)
-const JoinManualRoute = JoinManualRouteImport.update({
-  id: '/manual',
-  path: '/manual',
-  getParentRoute: () => JoinRoute,
-} as any)
-const CharacterCodeRoute = CharacterCodeRouteImport.update({
-  id: '/character/$code',
-  path: '/character/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
-  id:
-    | '__root__'
-    | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CreateRoute: typeof CreateRoute
-  JoinRoute: typeof JoinRouteWithChildren
-  CharacterCodeRoute: typeof CharacterCodeRoute
-  LobbyCodeRoute: typeof LobbyCodeRoute
-  SessionCodeRoute: typeof SessionCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/join': {
-      id: '/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof JoinRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/create': {
-      id: '/create'
-      path: '/create'
-      fullPath: '/create'
-      preLoaderRoute: typeof CreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -155,63 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/session/$code': {
-      id: '/session/$code'
-      path: '/session/$code'
-      fullPath: '/session/$code'
-      preLoaderRoute: typeof SessionCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lobby/$code': {
-      id: '/lobby/$code'
-      path: '/lobby/$code'
-      fullPath: '/lobby/$code'
-      preLoaderRoute: typeof LobbyCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/join/scan': {
-      id: '/join/scan'
-      path: '/scan'
-      fullPath: '/join/scan'
-      preLoaderRoute: typeof JoinScanRouteImport
-      parentRoute: typeof JoinRoute
-    }
-    '/join/manual': {
-      id: '/join/manual'
-      path: '/manual'
-      fullPath: '/join/manual'
-      preLoaderRoute: typeof JoinManualRouteImport
-      parentRoute: typeof JoinRoute
-    }
-    '/character/$code': {
-      id: '/character/$code'
-      path: '/character/$code'
-      fullPath: '/character/$code'
-      preLoaderRoute: typeof CharacterCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
-interface JoinRouteChildren {
-  JoinManualRoute: typeof JoinManualRoute
-  JoinScanRoute: typeof JoinScanRoute
-}
-
-const JoinRouteChildren: JoinRouteChildren = {
-  JoinManualRoute: JoinManualRoute,
-  JoinScanRoute: JoinScanRoute,
-}
-
-const JoinRouteWithChildren = JoinRoute._addFileChildren(JoinRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CreateRoute: CreateRoute,
-  JoinRoute: JoinRouteWithChildren,
-  CharacterCodeRoute: CharacterCodeRoute,
-  LobbyCodeRoute: LobbyCodeRoute,
-  SessionCodeRoute: SessionCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
