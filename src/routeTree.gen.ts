@@ -9,23 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as JoinRouteImport } from './routes/join'
-import { Route as CreateRouteImport } from './routes/create'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessionCodeRouteImport } from './routes/session.$code'
-import { Route as LobbyCodeRouteImport } from './routes/lobby.$code'
-import { Route as JoinScanRouteImport } from './routes/join.scan'
-import { Route as JoinManualRouteImport } from './routes/join.manual'
-import { Route as CharacterCodeRouteImport } from './routes/character.$code'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedCampaignsJoinRouteImport } from './routes/_authenticated/campaigns.join'
+import { Route as AuthenticatedCampaignsCreateRouteImport } from './routes/_authenticated/campaigns.create'
+import { Route as AuthenticatedCampaignsIdRouteImport } from './routes/_authenticated/campaigns.$id'
 
-const JoinRoute = JoinRouteImport.update({
-  id: '/join',
-  path: '/join',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreateRoute = CreateRouteImport.update({
-  id: '/create',
-  path: '/create',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -33,119 +32,115 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionCodeRoute = SessionCodeRouteImport.update({
-  id: '/session/$code',
-  path: '/session/$code',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const LobbyCodeRoute = LobbyCodeRouteImport.update({
-  id: '/lobby/$code',
-  path: '/lobby/$code',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const JoinScanRoute = JoinScanRouteImport.update({
-  id: '/scan',
-  path: '/scan',
-  getParentRoute: () => JoinRoute,
-} as any)
-const JoinManualRoute = JoinManualRouteImport.update({
-  id: '/manual',
-  path: '/manual',
-  getParentRoute: () => JoinRoute,
-} as any)
-const CharacterCodeRoute = CharacterCodeRouteImport.update({
-  id: '/character/$code',
-  path: '/character/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedCampaignsJoinRoute =
+  AuthenticatedCampaignsJoinRouteImport.update({
+    id: '/campaigns/join',
+    path: '/campaigns/join',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCampaignsCreateRoute =
+  AuthenticatedCampaignsCreateRouteImport.update({
+    id: '/campaigns/create',
+    path: '/campaigns/create',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCampaignsIdRoute =
+  AuthenticatedCampaignsIdRouteImport.update({
+    id: '/campaigns/$id',
+    path: '/campaigns/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
+  '/auth': typeof AuthRoute
+  '/home': typeof AuthenticatedHomeRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/campaigns/$id': typeof AuthenticatedCampaignsIdRoute
+  '/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
+  '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
+  '/auth': typeof AuthRoute
+  '/home': typeof AuthenticatedHomeRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/campaigns/$id': typeof AuthenticatedCampaignsIdRoute
+  '/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
+  '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/create': typeof CreateRoute
-  '/join': typeof JoinRouteWithChildren
-  '/character/$code': typeof CharacterCodeRoute
-  '/join/manual': typeof JoinManualRoute
-  '/join/scan': typeof JoinScanRoute
-  '/lobby/$code': typeof LobbyCodeRoute
-  '/session/$code': typeof SessionCodeRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/home': typeof AuthenticatedHomeRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/campaigns/$id': typeof AuthenticatedCampaignsIdRoute
+  '/_authenticated/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
+  '/_authenticated/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
+    | '/auth'
+    | '/home'
+    | '/profile'
+    | '/campaigns/$id'
+    | '/campaigns/create'
+    | '/campaigns/join'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
+    | '/auth'
+    | '/home'
+    | '/profile'
+    | '/campaigns/$id'
+    | '/campaigns/create'
+    | '/campaigns/join'
   id:
     | '__root__'
     | '/'
-    | '/create'
-    | '/join'
-    | '/character/$code'
-    | '/join/manual'
-    | '/join/scan'
-    | '/lobby/$code'
-    | '/session/$code'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/home'
+    | '/_authenticated/profile'
+    | '/_authenticated/campaigns/$id'
+    | '/_authenticated/campaigns/create'
+    | '/_authenticated/campaigns/join'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CreateRoute: typeof CreateRoute
-  JoinRoute: typeof JoinRouteWithChildren
-  CharacterCodeRoute: typeof CharacterCodeRoute
-  LobbyCodeRoute: typeof LobbyCodeRoute
-  SessionCodeRoute: typeof SessionCodeRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/join': {
-      id: '/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof JoinRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/create': {
-      id: '/create'
-      path: '/create'
-      fullPath: '/create'
-      preLoaderRoute: typeof CreateRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -155,74 +150,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/session/$code': {
-      id: '/session/$code'
-      path: '/session/$code'
-      fullPath: '/session/$code'
-      preLoaderRoute: typeof SessionCodeRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/lobby/$code': {
-      id: '/lobby/$code'
-      path: '/lobby/$code'
-      fullPath: '/lobby/$code'
-      preLoaderRoute: typeof LobbyCodeRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/home': {
+      id: '/_authenticated/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedHomeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/join/scan': {
-      id: '/join/scan'
-      path: '/scan'
-      fullPath: '/join/scan'
-      preLoaderRoute: typeof JoinScanRouteImport
-      parentRoute: typeof JoinRoute
+    '/_authenticated/campaigns/join': {
+      id: '/_authenticated/campaigns/join'
+      path: '/campaigns/join'
+      fullPath: '/campaigns/join'
+      preLoaderRoute: typeof AuthenticatedCampaignsJoinRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/join/manual': {
-      id: '/join/manual'
-      path: '/manual'
-      fullPath: '/join/manual'
-      preLoaderRoute: typeof JoinManualRouteImport
-      parentRoute: typeof JoinRoute
+    '/_authenticated/campaigns/create': {
+      id: '/_authenticated/campaigns/create'
+      path: '/campaigns/create'
+      fullPath: '/campaigns/create'
+      preLoaderRoute: typeof AuthenticatedCampaignsCreateRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/character/$code': {
-      id: '/character/$code'
-      path: '/character/$code'
-      fullPath: '/character/$code'
-      preLoaderRoute: typeof CharacterCodeRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/campaigns/$id': {
+      id: '/_authenticated/campaigns/$id'
+      path: '/campaigns/$id'
+      fullPath: '/campaigns/$id'
+      preLoaderRoute: typeof AuthenticatedCampaignsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface JoinRouteChildren {
-  JoinManualRoute: typeof JoinManualRoute
-  JoinScanRoute: typeof JoinScanRoute
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedCampaignsIdRoute: typeof AuthenticatedCampaignsIdRoute
+  AuthenticatedCampaignsCreateRoute: typeof AuthenticatedCampaignsCreateRoute
+  AuthenticatedCampaignsJoinRoute: typeof AuthenticatedCampaignsJoinRoute
 }
 
-const JoinRouteChildren: JoinRouteChildren = {
-  JoinManualRoute: JoinManualRoute,
-  JoinScanRoute: JoinScanRoute,
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedCampaignsIdRoute: AuthenticatedCampaignsIdRoute,
+  AuthenticatedCampaignsCreateRoute: AuthenticatedCampaignsCreateRoute,
+  AuthenticatedCampaignsJoinRoute: AuthenticatedCampaignsJoinRoute,
 }
 
-const JoinRouteWithChildren = JoinRoute._addFileChildren(JoinRouteChildren)
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CreateRoute: CreateRoute,
-  JoinRoute: JoinRouteWithChildren,
-  CharacterCodeRoute: CharacterCodeRoute,
-  LobbyCodeRoute: LobbyCodeRoute,
-  SessionCodeRoute: SessionCodeRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

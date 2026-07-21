@@ -14,15 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_memory: {
+        Row: {
+          campaign_id: string
+          content: string
+          created_at: string
+          id: string
+          kind: string
+          metadata: Json
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          content: string
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_memory_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_players: {
+        Row: {
+          campaign_id: string
+          id: string
+          joined_at: string
+          role: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_players_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          description: string | null
+          genre: string | null
+          gm_plays: boolean
+          id: string
+          invite_code: string
+          name: string
+          owner_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          gm_plays?: boolean
+          id?: string
+          invite_code: string
+          name: string
+          owner_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          gm_plays?: boolean
+          id?: string
+          invite_code?: string
+          name?: string
+          owner_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       characters: {
         Row: {
           abilities: Json
           attributes: Json
           backstory: string | null
+          campaign_id: string
           class_profession: string | null
           created_at: string
-          device_id: string
-          game_id: string
           id: string
           inventory: Json
           is_ready: boolean
@@ -33,15 +144,15 @@ export type Database = {
           portrait_url: string | null
           race: string | null
           updated_at: string
+          user_id: string
         }
         Insert: {
           abilities?: Json
           attributes?: Json
           backstory?: string | null
+          campaign_id: string
           class_profession?: string | null
           created_at?: string
-          device_id: string
-          game_id: string
           id?: string
           inventory?: Json
           is_ready?: boolean
@@ -52,15 +163,15 @@ export type Database = {
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
+          user_id: string
         }
         Update: {
           abilities?: Json
           attributes?: Json
           backstory?: string | null
+          campaign_id?: string
           class_profession?: string | null
           created_at?: string
-          device_id?: string
-          game_id?: string
           id?: string
           inventory?: Json
           is_ready?: boolean
@@ -71,141 +182,194 @@ export type Database = {
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "characters_game_id_fkey"
-            columns: ["game_id"]
+            foreignKeyName: "characters_campaign_id_fkey"
+            columns: ["campaign_id"]
             isOneToOne: false
-            referencedRelation: "games"
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]
       }
-      games: {
+      dice_requests: {
         Row: {
+          campaign_id: string
           created_at: string
-          description: string | null
-          genre: string | null
-          gm_device_id: string | null
-          gm_plays: boolean
+          formula: string
           id: string
-          invite_code: string | null
-          name: string
+          reason: string | null
+          requested_by: string | null
           status: string
+          target_user_id: string | null
         }
         Insert: {
+          campaign_id: string
           created_at?: string
-          description?: string | null
-          genre?: string | null
-          gm_device_id?: string | null
-          gm_plays?: boolean
+          formula: string
           id?: string
-          invite_code?: string | null
-          name: string
+          reason?: string | null
+          requested_by?: string | null
           status?: string
+          target_user_id?: string | null
         }
         Update: {
+          campaign_id?: string
           created_at?: string
-          description?: string | null
-          genre?: string | null
-          gm_device_id?: string | null
-          gm_plays?: boolean
+          formula?: string
           id?: string
-          invite_code?: string | null
-          name?: string
+          reason?: string | null
+          requested_by?: string | null
           status?: string
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dice_requests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dice_rolls: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          detail: Json
+          formula: string
+          id: string
+          request_id: string | null
+          result: number
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          detail?: Json
+          formula: string
+          id?: string
+          request_id?: string | null
+          result: number
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          detail?: Json
+          formula?: string
+          id?: string
+          request_id?: string | null
+          result?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dice_rolls_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dice_rolls_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "dice_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          campaign_id: string
+          content: string
+          created_at: string
+          id: string
+          metadata: Json
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role?: string
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          username?: string
         }
         Relationships: []
-      }
-      participants: {
-        Row: {
-          device_id: string
-          display_name: string
-          game_id: string
-          id: string
-          is_gm: boolean
-          joined_at: string
-          status: string
-        }
-        Insert: {
-          device_id: string
-          display_name: string
-          game_id: string
-          id?: string
-          is_gm?: boolean
-          joined_at?: string
-          status?: string
-        }
-        Update: {
-          device_id?: string
-          display_name?: string
-          game_id?: string
-          id?: string
-          is_gm?: boolean
-          joined_at?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "participants_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sessions: {
-        Row: {
-          ai_context: Json
-          created_at: string
-          game_id: string
-          history: Json
-          id: string
-          introduction: string | null
-          started_by_device_id: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          ai_context?: Json
-          created_at?: string
-          game_id: string
-          history?: Json
-          id?: string
-          introduction?: string | null
-          started_by_device_id?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          ai_context?: Json
-          created_at?: string
-          game_id?: string
-          history?: Json
-          id?: string
-          introduction?: string | null
-          started_by_device_id?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_campaign_by_invite_code: {
+        Args: { _code: string }
+        Returns: {
+          id: string
+          name: string
+          status: string
+        }[]
+      }
+      is_campaign_member: {
+        Args: { _campaign_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_campaign_owner: {
+        Args: { _campaign_id: string; _user_id: string }
+        Returns: boolean
+      }
+      shares_campaign_with: {
+        Args: { _me: string; _other_user: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
