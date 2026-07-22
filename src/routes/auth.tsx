@@ -31,7 +31,6 @@ function AuthPage() {
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,16 +42,14 @@ function AuthPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setLoading(true);
     try {
       if (mode === "signup") {
         if (!username.trim()) throw new Error("Le nom d'utilisateur est requis.");
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
             data: {
               username: username.trim(),
               avatar_url: avatarUrl.trim() || null,
@@ -60,12 +57,11 @@ function AuthPage() {
           },
         });
         if (signUpError) throw signUpError;
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          navigate({ to: "/home", replace: true });
-        } else {
-          setInfo("Compte créé. Vérifiez votre email pour confirmer.");
+        if (!data.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
         }
+        navigate({ to: "/home", replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -153,7 +149,6 @@ function AuthPage() {
           </Field>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {info && <p className="text-sm text-rpg">{info}</p>}
 
           <button type="submit" disabled={loading} className="rpg-button disabled:opacity-50">
             <span className="font-display tracking-wide">
