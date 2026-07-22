@@ -48,11 +48,10 @@ function AuthPage() {
     try {
       if (mode === "signup") {
         if (!username.trim()) throw new Error("Le nom d'utilisateur est requis.");
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
             data: {
               username: username.trim(),
               avatar_url: avatarUrl.trim() || null,
@@ -60,12 +59,11 @@ function AuthPage() {
           },
         });
         if (signUpError) throw signUpError;
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          navigate({ to: "/home", replace: true });
-        } else {
-          setInfo("Compte créé. Vérifiez votre email pour confirmer.");
+        if (!data.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
         }
+        navigate({ to: "/home", replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
