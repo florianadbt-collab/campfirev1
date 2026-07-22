@@ -31,7 +31,6 @@ function AuthPage() {
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,7 +42,6 @@ function AuthPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -151,7 +149,6 @@ function AuthPage() {
           </Field>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {info && <p className="text-sm text-rpg">{info}</p>}
 
           <button type="submit" disabled={loading} className="rpg-button disabled:opacity-50">
             <span className="font-display tracking-wide">
