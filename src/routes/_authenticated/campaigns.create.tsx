@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { generateInviteCode } from "@/lib/invite-code";
-
-const GENRES = ["Médiéval-fantastique", "Science-fiction", "Cyberpunk", "Horreur", "Post-apocalyptique", "Contemporain", "Autre"];
 
 export const Route = createFileRoute("/_authenticated/campaigns/create")({
   head: () => ({
@@ -20,11 +18,12 @@ export const Route = createFileRoute("/_authenticated/campaigns/create")({
 function CreateCampaignPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [world, setWorld] = useState("");
   const [description, setDescription] = useState("");
-  const [genre, setGenre] = useState(GENRES[0]);
-  const [gmPlays, setGmPlays] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,11 +41,12 @@ function CreateCampaignPage() {
           owner_id: userId,
           name: name.trim(),
           description: description.trim() || null,
-          genre,
-          gm_plays: gmPlays,
+          genre: world.trim() || null,
+          gm_plays: false,
+          status: "waiting",
           invite_code: inviteCode,
         })
-        .select("id")
+        .select("id, name, invite_code")
         .single();
       if (cErr) throw cErr;
 
@@ -57,11 +57,75 @@ function CreateCampaignPage() {
       });
       if (pErr) throw pErr;
 
-      navigate({ to: "/campaigns/$id", params: { id: campaign.id }, replace: true });
+      setCreated({ id: campaign.id, name: campaign.name, code: campaign.invite_code });
+      setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
       setLoading(false);
     }
+  }
+
+  async function copyCode() {
+    if (!created) return;
+    try {
+      await navigator.clipboard.writeText(created.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (created) {
+    return (
+      <MobileShell>
+        <header className="flex items-center gap-3 pb-6">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/home" })}
+            className="rounded-full border border-rpg/30 bg-card p-2 text-rpg"
+            aria-label="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="font-display text-xl tracking-wide text-foreground">Campagne créée</h1>
+        </header>
+
+        <section className="flex flex-1 flex-col gap-6">
+          <div className="rounded-2xl border border-rpg/30 bg-card p-5">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Nom de la campagne</p>
+            <p className="mt-1 font-display text-2xl text-foreground">{created.name}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={copyCode}
+            className="flex items-center justify-between rounded-2xl border border-rpg/30 bg-card px-4 py-4"
+          >
+            <div className="flex flex-col text-left">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                Code d'invitation
+              </span>
+              <span className="font-display text-3xl tracking-[0.4em] text-foreground">
+                {created.code}
+              </span>
+            </div>
+            <span className="flex items-center gap-1 text-xs text-rpg">
+              <Copy className="h-4 w-4" />
+              {copied ? "Copié" : "Copier"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/campaigns/$id", params: { id: created.id } })}
+            className="rpg-button"
+          >
+            <span className="font-display tracking-wide">Ouvrir la salle d'attente</span>
+          </button>
+        </section>
+      </MobileShell>
+    );
   }
 
   return (
@@ -88,36 +152,20 @@ function CreateCampaignPage() {
 
         <label className="flex flex-col gap-2">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Description de l'univers
+            Nom du monde (optionnel)
           </span>
-          <textarea
-            rows={5}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rpg-input resize-none"
-          />
+          <input value={world} onChange={(e) => setWorld(e.target.value)} className="rpg-input" />
         </label>
 
         <label className="flex flex-col gap-2">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Genre / Ambiance
+            Description courte (optionnel)
           </span>
-          <select value={genre} onChange={(e) => setGenre(e.target.value)} className="rpg-input">
-            {GENRES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center justify-between rounded-2xl border border-rpg/30 bg-card px-4 py-3">
-          <span className="text-sm text-foreground">Le MJ joue aussi</span>
-          <input
-            type="checkbox"
-            checked={gmPlays}
-            onChange={(e) => setGmPlays(e.target.checked)}
-            className="h-5 w-5 accent-[var(--color-rpg)]"
+          <textarea
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="rpg-input resize-none"
           />
         </label>
 
