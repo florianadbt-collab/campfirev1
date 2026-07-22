@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft, Copy } from "lucide-react";
-import { useState } from "react";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Copy, Play, Check } from "lucide-react";
+import { useEffect, useState } from "react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -56,7 +56,33 @@ function CampaignPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data } = useSuspenseQuery(campaignQuery(id));
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: u }) => setUserId(u.user?.id ?? null));
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`campaign-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaign_players", filter: `campaign_id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["campaign", id] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "campaigns", filter: `id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["campaign", id] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   async function copyCode() {
     try {
@@ -67,6 +93,36 @@ function CampaignPage() {
       /* ignore */
     }
   }
+
+  const isOwner = userId === data.campaign.owner_id;
+  const me = data.players.find((p) => p.user_id === userId);
+  const isReady = me?.status === "ready";
+
+  async function toggleReady() {
+    if (!userId || !me) return;
+    setBusy(true);
+    const nextStatus = isReady ? "connected" : "ready";
+    const { error } = await supabase
+      .from("campaign_players")
+      .update({ status: nextStatus })
+      .eq("campaign_id", id)
+      .eq("user_id", userId);
+    if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+    setBusy(false);
+  }
+
+  async function startCampaign() {
+    setBusy(true);
+    const { error } = await supabase
+      .from("campaigns")
+      .update({ status: "active" })
+      .eq("id", id);
+    if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+    setBusy(false);
+  }
+
+  const nonGmPlayers = data.players.filter((p) => p.role !== "gm");
+  const allReady = nonGmPlayers.length > 0 && nonGmPlayers.every((p) => p.status === "ready");
 
   return (
     <MobileShell>
@@ -90,11 +146,12 @@ function CampaignPage() {
           <p className="text-sm text-muted-foreground">{data.campaign.description}</p>
         )}
 
-        <button
-          type="button"
-          onClick={copyCode}
-          className="flex items-center justify-between rounded-2xl border border-rpg/30 bg-card px-4 py-3"
-        >
+        {isOwner && (
+          <button
+            type="button"
+            onClick={copyCode}
+            className="flex items-center justify-between rounded-2xl border border-rpg/30 bg-card px-4 py-3"
+          >
           <div className="flex flex-col text-left">
             <span className="text-xs uppercase tracking-wider text-muted-foreground">
               Code d'invitation
@@ -107,15 +164,18 @@ function CampaignPage() {
             <Copy className="h-4 w-4" />
             {copied ? "Copié" : "Copier"}
           </span>
-        </button>
+          </button>
+        )}
 
         <div className="flex flex-col gap-2">
           <h2 className="font-display text-lg tracking-wide text-foreground">
-            Joueurs ({data.players.length})
+            Participants ({data.players.length})
           </h2>
           <ul className="flex flex-col gap-2">
             {data.players.map((p) => {
               const profile = p.profile;
+              const isGm = p.role === "gm";
+              const ready = p.status === "ready";
               return (
                 <li
                   key={p.user_id}
@@ -135,12 +195,56 @@ function CampaignPage() {
                       {profile?.username ?? "—"}
                     </span>
                   </div>
-                  <span className="text-xs uppercase tracking-wider text-rpg">{p.role}</span>
+                  {isGm ? (
+                    <span className="rounded-full border border-rpg/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-rpg">
+                      MJ
+                    </span>
+                  ) : (
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                        ready
+                          ? "border-rpg/60 bg-rpg/10 text-rpg"
+                          : "border-muted-foreground/30 text-muted-foreground"
+                      }`}
+                    >
+                      {ready ? "Prêt" : "Pas prêt"}
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ul>
         </div>
+
+        {isOwner ? (
+          <button
+            type="button"
+            onClick={startCampaign}
+            disabled={busy || !allReady || data.campaign.status === "active"}
+            className="rpg-button disabled:opacity-50"
+          >
+            <Play className="h-5 w-5 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">
+              {data.campaign.status === "active"
+                ? "Partie démarrée"
+                : allReady
+                  ? "Démarrer la partie"
+                  : "En attente des joueurs…"}
+            </span>
+          </button>
+        ) : me ? (
+          <button
+            type="button"
+            onClick={toggleReady}
+            disabled={busy}
+            className="rpg-button disabled:opacity-50"
+          >
+            <Check className="h-5 w-5 shrink-0 text-rpg" />
+            <span className="font-display tracking-wide">
+              {isReady ? "Annuler prêt" : "Je suis prêt"}
+            </span>
+          </button>
+        ) : null}
       </section>
     </MobileShell>
   );
