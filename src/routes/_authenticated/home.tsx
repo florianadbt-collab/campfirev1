@@ -3,6 +3,7 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { LogOut, Plus, UserCircle, Users } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { clearLocalIdentity } from "@/lib/local-identity";
 
 type CampaignRow = {
   id: string;
@@ -63,6 +64,7 @@ function HomePage() {
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    clearLocalIdentity();
     await supabase.auth.signOut();
     navigate({ to: "/", replace: true });
   }
