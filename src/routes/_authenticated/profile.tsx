@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { clearLocalIdentity } from "@/lib/local-identity";
 
 function profileQuery() {
   return {
@@ -54,6 +55,7 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -71,6 +73,19 @@ function ProfilePage() {
       setInfo("Profil mis à jour.");
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     }
+  }
+
+  async function handleSwitchPlayer() {
+    const confirmed = window.confirm(
+      "Changer de joueur ? Les données locales seront effacées et un nouveau pseudo devra être créé.",
+    );
+    if (!confirmed) return;
+    setSwitching(true);
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    clearLocalIdentity();
+    await supabase.auth.signOut();
+    navigate({ to: "/", replace: true });
   }
 
   return (
@@ -164,6 +179,20 @@ function ProfilePage() {
           </ul>
         )}
       </section>
+
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={handleSwitchPlayer}
+          disabled={switching}
+          className="w-full rounded-2xl border border-destructive/40 bg-card p-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+        >
+          {switching ? "..." : "Changer de joueur"}
+        </button>
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Efface les données locales et crée ou utilise un autre pseudo.
+        </p>
+      </div>
     </MobileShell>
   );
 }
