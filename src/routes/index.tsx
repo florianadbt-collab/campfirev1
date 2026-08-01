@@ -21,6 +21,21 @@ export const Route = createFileRoute("/")({
 
 type Phase = "loading" | "pseudo" | "error";
 
+/**
+ * The pseudo is the login: reconnects to the existing account when the pseudo
+ * already exists, creates it otherwise. Never fails because a pseudo is taken.
+ */
+async function signInWithPseudo(value: string) {
+  const result = await resolvePseudo({ data: { pseudo: value } });
+  const { error } = await supabase.auth.setSession({
+    access_token: result.access_token,
+    refresh_token: result.refresh_token,
+  });
+  if (error) throw error;
+  setLocalIdentity({ userId: result.userId, pseudo: result.pseudo });
+  return result;
+}
+
 function BootstrapPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("loading");
