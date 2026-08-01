@@ -15,11 +15,26 @@ export const Route = createFileRoute("/_authenticated/campaigns/create")({
   component: CreateCampaignPage,
 });
 
+const CAMPAIGN_TYPES = [
+  "Libre",
+  "Héroïque",
+  "Survie",
+  "Enquête",
+  "Horreur",
+  "Mystère",
+  "Exploration",
+  "Politique",
+  "Sandbox",
+] as const;
+
 function CreateCampaignPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [world, setWorld] = useState("");
   const [description, setDescription] = useState("");
+  const [campaignType, setCampaignType] = useState<string>(CAMPAIGN_TYPES[0]);
+  const [universe, setUniverse] = useState("");
+  const [gmPlays, setGmPlays] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; name: string; code: string } | null>(null);
@@ -40,9 +55,12 @@ function CreateCampaignPage() {
         .insert({
           owner_id: userId,
           name: name.trim(),
-          description: description.trim() || null,
-          genre: world.trim() || null,
-          gm_plays: false,
+          description:
+            [description.trim(), universe.trim() ? `Univers : ${universe.trim()}` : ""]
+              .filter(Boolean)
+              .join("\n\n") || null,
+          genre: [campaignType, world.trim()].filter(Boolean).join(" — "),
+          gm_plays: gmPlays,
           status: "waiting",
           invite_code: inviteCode,
         })
