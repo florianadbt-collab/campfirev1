@@ -171,6 +171,13 @@ function CampaignPage() {
           <h2 className="font-display text-lg tracking-wide text-foreground">
             Participants ({data.players.length})
           </h2>
+          <Link
+            to="/campaigns/$id/character"
+            params={{ id: data.campaign.id }}
+            className="mb-1 flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-secondary px-4 py-3 font-display tracking-wide text-foreground"
+          >
+            Créer mon personnage
+          </Link>
           <ul className="flex flex-col gap-2">
             {data.players.map((p) => {
               const profile = p.profile;
