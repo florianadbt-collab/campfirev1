@@ -20,6 +20,18 @@ export const Route = createFileRoute("/")({
 
 type Phase = "loading" | "pseudo" | "error";
 
+/**
+ * Re-attach a previously used pseudo to a freshly created local identity.
+ * Returns false when the pseudo is no longer available.
+ */
+async function restorePseudo(userId: string, pseudo: string) {
+  const { error } = await supabase.from("profiles").update({ username: pseudo }).eq("id", userId);
+  if (error) return false;
+  await supabase.auth.updateUser({ data: { username: pseudo, pseudo_set: true } });
+  setLocalIdentity({ userId, pseudo });
+  return true;
+}
+
 function BootstrapPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("loading");
