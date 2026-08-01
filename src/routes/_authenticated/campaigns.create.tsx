@@ -15,11 +15,26 @@ export const Route = createFileRoute("/_authenticated/campaigns/create")({
   component: CreateCampaignPage,
 });
 
+const CAMPAIGN_TYPES = [
+  "Libre",
+  "Héroïque",
+  "Survie",
+  "Enquête",
+  "Horreur",
+  "Mystère",
+  "Exploration",
+  "Politique",
+  "Sandbox",
+] as const;
+
 function CreateCampaignPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [world, setWorld] = useState("");
   const [description, setDescription] = useState("");
+  const [campaignType, setCampaignType] = useState<string>(CAMPAIGN_TYPES[0]);
+  const [universe, setUniverse] = useState("");
+  const [gmPlays, setGmPlays] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; name: string; code: string } | null>(null);
@@ -40,9 +55,12 @@ function CreateCampaignPage() {
         .insert({
           owner_id: userId,
           name: name.trim(),
-          description: description.trim() || null,
-          genre: world.trim() || null,
-          gm_plays: false,
+          description:
+            [description.trim(), universe.trim() ? `Univers : ${universe.trim()}` : ""]
+              .filter(Boolean)
+              .join("\n\n") || null,
+          genre: [campaignType, world.trim()].filter(Boolean).join(" — "),
+          gm_plays: gmPlays,
           status: "waiting",
           invite_code: inviteCode,
         })
@@ -156,6 +174,56 @@ function CreateCampaignPage() {
           </span>
           <input value={world} onChange={(e) => setWorld(e.target.value)} className="rpg-input" />
         </label>
+
+        <label className="flex flex-col gap-2">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Type de campagne
+          </span>
+          <select
+            value={campaignType}
+            onChange={(e) => setCampaignType(e.target.value)}
+            className="rpg-input"
+          >
+            {CAMPAIGN_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-2">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Description de l'univers
+          </span>
+          <textarea
+            rows={4}
+            maxLength={300}
+            value={universe}
+            onChange={(e) => setUniverse(e.target.value)}
+            className="rpg-input resize-none"
+          />
+          <span className="self-end text-[10px] text-muted-foreground">{universe.length}/300</span>
+        </label>
+
+        <div className="flex items-center justify-between rounded-2xl border border-rpg/30 bg-card px-4 py-3">
+          <span className="text-sm text-foreground">Le MJ participe également comme joueur</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={gmPlays}
+            onClick={() => setGmPlays((v) => !v)}
+            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${
+              gmPlays ? "border-rpg bg-rpg/30" : "border-rpg/30 bg-background"
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-rpg transition-all ${
+                gmPlays ? "left-6" : "left-1 opacity-50"
+              }`}
+            />
+          </button>
+        </div>
 
         <label className="flex flex-col gap-2">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -20,6 +20,18 @@ export const Route = createFileRoute("/")({
 
 type Phase = "loading" | "pseudo" | "error";
 
+/**
+ * Re-attach a previously used pseudo to a freshly created local identity.
+ * Returns false when the pseudo is no longer available.
+ */
+async function restorePseudo(userId: string, pseudo: string) {
+  const { error } = await supabase.from("profiles").update({ username: pseudo }).eq("id", userId);
+  if (error) return false;
+  await supabase.auth.updateUser({ data: { username: pseudo, pseudo_set: true } });
+  setLocalIdentity({ userId, pseudo });
+  return true;
+}
+
 function BootstrapPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -43,19 +55,37 @@ function BootstrapPage() {
           return;
         }
 
-        // Local identity stored but session was lost (cleared cookies, etc.):
-        // drop stale local data and fall through to pseudo creation.
-        if (local && (!user || user.id !== local.userId)) {
-          clearLocalIdentity();
-        }
-
-        // No session yet → create an anonymous one for the new player.
+        // No session yet → create an anonymous one (transparent for the player).
         if (!user) {
           const { error: anonError } = await supabase.auth.signInAnonymously();
           if (anonError) throw anonError;
           ({ data: sessionData } = await supabase.auth.getSession());
           user = sessionData.session?.user ?? null;
           if (!user) throw new Error("Session introuvable");
+        }
+
+        // A pseudo was stored locally but the session UUID changed (cleared
+        // cookies, new anonymous session): silently re-apply the same pseudo
+        // to the new identity instead of asking again.
+        if (local?.pseudo) {
+          clearLocalIdentity();
+          const restored = await restorePseudo(user.id, local.pseudo);
+          if (restored) {
+            navigate({ to: "/home", replace: true });
+            return;
+          }
+        }
+
+        // Existing profile with a pseudo already set → go straight in.
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.username && user.user_metadata?.pseudo_set) {
+          setLocalIdentity({ userId: user.id, pseudo: profile.username });
+          navigate({ to: "/home", replace: true });
+          return;
         }
 
         setPseudo("");
