@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { LogoTemp } from "@/components/logo-temp";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
-import { clearLocalIdentity, getLocalIdentity, setLocalIdentity } from "@/lib/local-identity";
+import { getLocalIdentity, setLocalIdentity } from "@/lib/local-identity";
+import { resolvePseudo } from "@/lib/identity.functions";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -20,18 +21,6 @@ export const Route = createFileRoute("/")({
 
 type Phase = "loading" | "pseudo" | "error";
 
-/**
- * Re-attach a previously used pseudo to a freshly created local identity.
- * Returns false when the pseudo is no longer available.
- */
-async function restorePseudo(userId: string, pseudo: string) {
-  const { error } = await supabase.from("profiles").update({ username: pseudo }).eq("id", userId);
-  if (error) return false;
-  await supabase.auth.updateUser({ data: { username: pseudo, pseudo_set: true } });
-  setLocalIdentity({ userId, pseudo });
-  return true;
-}
-
 function BootstrapPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -46,8 +35,8 @@ function BootstrapPage() {
     (async () => {
       try {
         const local = getLocalIdentity();
-        let { data: sessionData } = await supabase.auth.getSession();
-        let user = sessionData.session?.user ?? null;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user ?? null;
 
         // Reuse local identity when a matching Supabase session already exists.
         if (local && user && user.id === local.userId) {
@@ -55,37 +44,30 @@ function BootstrapPage() {
           return;
         }
 
-        // No session yet → create an anonymous one (transparent for the player).
-        if (!user) {
-          const { error: anonError } = await supabase.auth.signInAnonymously();
-          if (anonError) throw anonError;
-          ({ data: sessionData } = await supabase.auth.getSession());
-          user = sessionData.session?.user ?? null;
-          if (!user) throw new Error("Session introuvable");
-        }
-
-        // A pseudo was stored locally but the session UUID changed (cleared
-        // cookies, new anonymous session): silently re-apply the same pseudo
-        // to the new identity instead of asking again.
+        // A pseudo is stored locally but the session is gone: reconnect
+        // silently to that same identity.
         if (local?.pseudo) {
-          clearLocalIdentity();
-          const restored = await restorePseudo(user.id, local.pseudo);
-          if (restored) {
+          try {
+            await signInWithPseudo(local.pseudo);
             navigate({ to: "/home", replace: true });
             return;
+          } catch {
+            /* fall through to the pseudo screen */
           }
         }
 
-        // Existing profile with a pseudo already set → go straight in.
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profile?.username && user.user_metadata?.pseudo_set) {
-          setLocalIdentity({ userId: user.id, pseudo: profile.username });
-          navigate({ to: "/home", replace: true });
-          return;
+        // Existing session with a pseudo already set → go straight in.
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (profile?.username && user.user_metadata?.pseudo_set) {
+            setLocalIdentity({ userId: user.id, pseudo: profile.username });
+            navigate({ to: "/home", replace: true });
+            return;
+          }
         }
 
         setPseudo("");
@@ -104,22 +86,7 @@ function BootstrapPage() {
     setSaving(true);
     setError(null);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) throw new Error("Session introuvable");
-
-      const { error: upErr } = await supabase
-        .from("profiles")
-        .update({ username: value })
-        .eq("id", userId);
-      if (upErr) {
-        if (upErr.code === "23505") {
-          throw new Error("Ce pseudo est déjà pris.");
-        }
-        throw upErr;
-      }
-      await supabase.auth.updateUser({ data: { username: value, pseudo_set: true } });
-      setLocalIdentity({ userId, pseudo: value });
+      await signInWithPseudo(value);
       navigate({ to: "/home", replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
