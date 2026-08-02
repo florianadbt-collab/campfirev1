@@ -28,7 +28,7 @@ export interface CampaignSeed {
   gmPlays?: boolean;
 }
 
-export interface CharacterBrief {
+export type CharacterBrief = {
   name: string;
   race?: string | null;
   class_profession?: string | null;
@@ -60,7 +60,7 @@ export interface AIRequest {
   debug?: boolean;
 }
 
-export interface SceneResponse {
+export type SceneResponse = {
   scene_title: string;
   narration: string;
   scene_mood: string;

@@ -2,7 +2,7 @@
  * gemini-engine — point unique d'appel à Gemini (serveur uniquement).
  * Aucune clé d'API n'existe côté navigateur : elle est lue ici, à l'exécution.
  */
-import type { AIDebugInfo, AIRequest, AIResult, AITask, SceneResponse } from "./types";
+import type { AIDebugInfo, AIRequest, AIResult, AITask, Json, SceneResponse } from "./types";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3.6-flash";
@@ -151,7 +151,7 @@ function normalizeScene(value: unknown): SceneResponse {
 }
 
 /** Tâches non encore branchées sur un modèle : réponse simulée, contrat définitif. */
-const SIMULATED: Partial<Record<AITask, () => unknown>> = {
+const SIMULATED: Partial<Record<AITask, () => Json>> = {
   generatePortrait: () => ({ image_url: null, image_prompt: "portrait placeholder" }),
   generateSceneImage: () => ({ image_url: null, image_prompt: "scene placeholder" }),
   generateMusic: () => ({ music_url: null, music_query: "dark fantasy ambient" }),
@@ -164,14 +164,14 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
 
   const simulate = SIMULATED[req.task];
   if (simulate) {
-    return { ok: true, task: req.task, data: simulate(), durationMs: Date.now() - startedAt, simulated: true };
+    return { ok: true, task: req.task, data: simulate() as Json, durationMs: Date.now() - startedAt, simulated: true };
   }
 
   const prompt = buildPrompt(req);
 
   try {
     const { value, debug } = await callGemini(prompt, req.task);
-    const data = req.task === "startCampaign" ? normalizeScene(value) : value;
+    const data = (req.task === "startCampaign" ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
 
@@ -219,7 +219,7 @@ async function persistScene(req: AIRequest, data: unknown) {
       user_id: null,
       role: "gm",
       content: typeof scene?.narration === "string" ? scene.narration : JSON.stringify(data),
-      metadata: { task: req.task, ...(data as Record<string, unknown>) },
+      metadata: { task: req.task, ...(data as Record<string, unknown>) } as never,
     });
   } catch (e) {
     console.error("[gemini-engine] persist failed:", (e as Error).message);
