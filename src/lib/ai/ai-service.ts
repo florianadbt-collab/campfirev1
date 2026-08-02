@@ -4,7 +4,7 @@ import type { AIRequest, AIResult, AIWorldContext, CampaignSeed, CharacterBrief,
 
 type Options = { context?: AIWorldContext; debug?: boolean };
 
-async function run<T>(req: AIRequest): Promise<AIResult<T>> {
+async function run<T extends import("./types").Json = import("./types").Json>(req: AIRequest): Promise<AIResult<T>> {
   try {
     return (await geminiEngine({
       data: { debug: isAIDebugEnabled(), ...req },
@@ -45,7 +45,7 @@ export const AIService = {
       ...o,
     }),
 
-  playTurn: (args: { campaignId: string; intent: unknown }, o: Options = {}) =>
+  playTurn: (args: { campaignId: string; intent: import("./types").Json }, o: Options = {}) =>
     run<SceneResponse>({
       task: "playTurn",
       campaignId: args.campaignId,

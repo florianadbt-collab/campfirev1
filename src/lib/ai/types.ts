@@ -5,6 +5,8 @@
  * transitent tels quels jusqu'au moteur, sans changer la signature publique.
  */
 
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+
 export type AITask =
   | "createCampaign"
   | "startCampaign"
@@ -37,21 +39,21 @@ export interface CharacterBrief {
 /** Blocs de contexte réservés aux phases suivantes du moteur Campfire. */
 export interface AIWorldContext {
   campaignSeed?: CampaignSeed;
-  canonicalWorldState?: unknown;
-  stateDelta?: unknown;
-  playerIntent?: unknown;
-  worldTimeline?: unknown;
-  activeClocks?: unknown;
-  npcRegistry?: unknown;
-  factionRegistry?: unknown;
-  secretKnowledge?: unknown;
+  canonicalWorldState?: Json;
+  stateDelta?: Json;
+  playerIntent?: Json;
+  worldTimeline?: Json;
+  activeClocks?: Json;
+  npcRegistry?: Json;
+  factionRegistry?: Json;
+  secretKnowledge?: Json;
 }
 
 export interface AIRequest {
   task: AITask;
   campaignId?: string;
   /** Données spécifiques à la tâche (ex: liste des personnages). */
-  payload?: Record<string, unknown>;
+  payload?: { [key: string]: Json };
   context?: AIWorldContext;
   /** Persiste la réponse dans la table `messages` quand c'est pertinent. */
   persist?: boolean;
@@ -76,7 +78,7 @@ export interface AIDebugInfo {
   error?: string;
 }
 
-export interface AIResult<T = unknown> {
+export interface AIResult<T extends Json = Json> {
   ok: boolean;
   task: AITask;
   data: T | null;
