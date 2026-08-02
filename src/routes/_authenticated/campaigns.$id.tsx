@@ -4,6 +4,9 @@ import { ArrowLeft, Copy, Play, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { AIService } from "@/lib/ai/ai-service";
+import { AIDebugPanel } from "@/components/ai-debug-panel";
+import type { AIResult, SceneResponse } from "@/lib/ai/types";
 
 function campaignQuery(id: string) {
   return {
@@ -60,6 +63,9 @@ function CampaignPage() {
   const [copied, setCopied] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scene, setScene] = useState<SceneResponse | null>(null);
+  const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: u }) => setUserId(u.user?.id ?? null));
@@ -113,11 +119,33 @@ function CampaignPage() {
 
   async function startCampaign() {
     setBusy(true);
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ status: "active" })
-      .eq("id", id);
-    if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+    setAiError(null);
+
+    const { data: characters } = await supabase
+      .from("characters")
+      .select("name, race, class_profession, level, backstory")
+      .eq("campaign_id", id);
+
+    const result = await AIService.startCampaign({
+      campaignId: id,
+      seed: {
+        id,
+        name: data.campaign.name,
+        type: data.campaign.genre,
+        universe: data.campaign.description,
+        gmPlays: data.campaign.gm_plays,
+      },
+      characters: characters ?? [],
+    });
+
+    setAiResult(result);
+    if (result.ok && result.data) {
+      setScene(result.data);
+      const { error } = await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
+      if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+    } else {
+      setAiError(result.errorMessage ?? "Le MJ IA est indisponible.");
+    }
     setBusy(false);
   }
 
@@ -224,21 +252,33 @@ function CampaignPage() {
         </div>
 
         {isOwner ? (
+          <>
           <button
             type="button"
             onClick={startCampaign}
-            disabled={busy || !allReady || data.campaign.status === "active"}
+            disabled={busy || (!allReady && !aiError)}
             className="rpg-button disabled:opacity-50"
           >
             <Play className="h-5 w-5 shrink-0 text-rpg" />
             <span className="font-display tracking-wide">
-              {data.campaign.status === "active"
-                ? "Partie démarrée"
-                : allReady
-                  ? "Démarrer la partie"
-                  : "En attente des joueurs…"}
+              {busy
+                ? "Le MJ prépare la scène…"
+                : aiError
+                  ? "Réessayer"
+                  : data.campaign.status === "active"
+                    ? "Relancer une scène"
+                    : allReady
+                      ? "Lancer la campagne"
+                      : "En attente des joueurs…"}
             </span>
           </button>
+          {aiError && (
+            <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {aiError}
+            </p>
+          )}
+          <AIDebugPanel result={aiResult} />
+          </>
         ) : me ? (
           <button
             type="button"
@@ -252,6 +292,25 @@ function CampaignPage() {
             </span>
           </button>
         ) : null}
+
+        {scene && (
+          <section className="flex flex-col gap-3 rounded-2xl border border-rpg/30 bg-card p-4">
+            <h2 className="font-display text-xl tracking-wide text-foreground">{scene.scene_title}</h2>
+            <p className="whitespace-pre-line text-sm text-muted-foreground">{scene.narration}</p>
+            {scene.suggested_actions.length > 0 && (
+              <ul className="flex flex-col gap-2">
+                {scene.suggested_actions.map((a) => (
+                  <li
+                    key={a}
+                    className="rounded-xl border border-rpg/20 bg-secondary px-3 py-2 text-sm text-foreground"
+                  >
+                    {a}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </section>
     </MobileShell>
   );
