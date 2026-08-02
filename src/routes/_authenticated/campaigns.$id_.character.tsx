@@ -73,7 +73,7 @@ const METHODS: {
 ];
 
 function CharacterCreationPage() {
-  const { id } = useParams({ from: "/_authenticated/campaigns/$id/character" });
+  const { id } = useParams({ from: "/_authenticated/campaigns/$id_/character" });
   const [method, setMethod] = useState<Method | null>(null);
 
   return (
