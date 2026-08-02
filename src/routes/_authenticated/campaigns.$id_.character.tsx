@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 
-export const Route = createFileRoute("/_authenticated/campaigns/$id/character")({
+export const Route = createFileRoute("/_authenticated/campaigns/$id_/character")({
   head: () => ({
     meta: [
       { title: "Campfire — Création de personnage" },
@@ -73,7 +73,7 @@ const METHODS: {
 ];
 
 function CharacterCreationPage() {
-  const { id } = useParams({ from: "/_authenticated/campaigns/$id/character" });
+  const { id } = useParams({ from: "/_authenticated/campaigns/$id_/character" });
   const [method, setMethod] = useState<Method | null>(null);
 
   return (
