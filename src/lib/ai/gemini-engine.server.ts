@@ -3,6 +3,7 @@
  * Aucune clé d'API n'existe côté navigateur : elle est lue ici, à l'exécution.
  */
 import type { AIDebugInfo, AIRequest, AIResult, AITask, Json, SceneResponse } from "./types";
+import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3.6-flash";
