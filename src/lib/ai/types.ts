@@ -12,6 +12,7 @@ export type AITask =
   | "startCampaign"
   | "playTurn"
   | "generateCharacter"
+  | "importCharacter"
   | "generatePortrait"
   | "generateSceneImage"
   | "generateMusic"
@@ -55,6 +56,8 @@ export interface AIRequest {
   /** Données spécifiques à la tâche (ex: liste des personnages). */
   payload?: { [key: string]: Json };
   context?: AIWorldContext;
+  /** Pièces jointes multimodales (data URL) — import de fiche par exemple. */
+  attachments?: { name: string; mimeType: string; dataUrl: string }[];
   /** Persiste la réponse dans la table `messages` quand c'est pertinent. */
   persist?: boolean;
   debug?: boolean;
