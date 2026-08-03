@@ -128,12 +128,6 @@ function userContent(req: AIRequest, prompt: string): unknown {
   ];
 }
 
-/* --------------------------------------------------------------- entrypoint */
-
-function noop() {
-  }
-}
-
 /* ------------------------------------------------------------- appel Gemini */
 
 function extractJson(raw: string): unknown {
