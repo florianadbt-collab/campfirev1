@@ -143,6 +143,9 @@ function CampaignPage() {
       setScene(result.data);
       const { error } = await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
       if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+      setBusy(false);
+      navigate({ to: "/campaigns/$id/play", params: { id } });
+      return;
     } else {
       setAiError(result.errorMessage ?? "Le MJ IA est indisponible.");
     }
