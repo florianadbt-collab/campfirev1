@@ -16,6 +16,7 @@ import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/h
 import { Route as AuthenticatedCampaignsJoinRouteImport } from './routes/_authenticated/campaigns.join'
 import { Route as AuthenticatedCampaignsCreateRouteImport } from './routes/_authenticated/campaigns.create'
 import { Route as AuthenticatedCampaignsIdRouteImport } from './routes/_authenticated/campaigns.$id'
+import { Route as AuthenticatedCampaignsIdPlayRouteImport } from './routes/_authenticated/campaigns.$id_.play'
 import { Route as AuthenticatedCampaignsIdCharacterRouteImport } from './routes/_authenticated/campaigns.$id_.character'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -55,6 +56,12 @@ const AuthenticatedCampaignsIdRoute =
     path: '/campaigns/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCampaignsIdPlayRoute =
+  AuthenticatedCampaignsIdPlayRouteImport.update({
+    id: '/campaigns/$id_/play',
+    path: '/campaigns/$id/play',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCampaignsIdCharacterRoute =
   AuthenticatedCampaignsIdCharacterRouteImport.update({
     id: '/campaigns/$id_/character',
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
   '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/campaigns/$id/character': typeof AuthenticatedCampaignsIdCharacterRoute
+  '/campaigns/$id/play': typeof AuthenticatedCampaignsIdPlayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
   '/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
   '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/campaigns/$id/character': typeof AuthenticatedCampaignsIdCharacterRoute
+  '/campaigns/$id/play': typeof AuthenticatedCampaignsIdPlayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,6 +99,7 @@ export interface FileRoutesById {
   '/_authenticated/campaigns/create': typeof AuthenticatedCampaignsCreateRoute
   '/_authenticated/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/_authenticated/campaigns/$id_/character': typeof AuthenticatedCampaignsIdCharacterRoute
+  '/_authenticated/campaigns/$id_/play': typeof AuthenticatedCampaignsIdPlayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
     | '/campaigns/create'
     | '/campaigns/join'
     | '/campaigns/$id/character'
+    | '/campaigns/$id/play'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
     | '/campaigns/create'
     | '/campaigns/join'
     | '/campaigns/$id/character'
+    | '/campaigns/$id/play'
   id:
     | '__root__'
     | '/'
@@ -120,6 +132,7 @@ export interface FileRouteTypes {
     | '/_authenticated/campaigns/create'
     | '/_authenticated/campaigns/join'
     | '/_authenticated/campaigns/$id_/character'
+    | '/_authenticated/campaigns/$id_/play'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCampaignsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/campaigns/$id_/play': {
+      id: '/_authenticated/campaigns/$id_/play'
+      path: '/campaigns/$id/play'
+      fullPath: '/campaigns/$id/play'
+      preLoaderRoute: typeof AuthenticatedCampaignsIdPlayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/campaigns/$id_/character': {
       id: '/_authenticated/campaigns/$id_/character'
       path: '/campaigns/$id/character'
@@ -195,6 +215,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCampaignsCreateRoute: typeof AuthenticatedCampaignsCreateRoute
   AuthenticatedCampaignsJoinRoute: typeof AuthenticatedCampaignsJoinRoute
   AuthenticatedCampaignsIdCharacterRoute: typeof AuthenticatedCampaignsIdCharacterRoute
+  AuthenticatedCampaignsIdPlayRoute: typeof AuthenticatedCampaignsIdPlayRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -205,6 +226,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCampaignsJoinRoute: AuthenticatedCampaignsJoinRoute,
   AuthenticatedCampaignsIdCharacterRoute:
     AuthenticatedCampaignsIdCharacterRoute,
+  AuthenticatedCampaignsIdPlayRoute: AuthenticatedCampaignsIdPlayRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

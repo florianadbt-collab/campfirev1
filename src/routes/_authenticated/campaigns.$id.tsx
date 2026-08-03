@@ -143,6 +143,9 @@ function CampaignPage() {
       setScene(result.data);
       const { error } = await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
       if (!error) queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+      setBusy(false);
+      navigate({ to: "/campaigns/$id/play", params: { id } });
+      return;
     } else {
       setAiError(result.errorMessage ?? "Le MJ IA est indisponible.");
     }
@@ -204,8 +207,17 @@ function CampaignPage() {
             params={{ id: data.campaign.id }}
             className="mb-1 flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-secondary px-4 py-3 font-display tracking-wide text-foreground"
           >
-            Créer mon personnage
+            {isReady ? "Modifier mon personnage" : "Créer mon personnage"}
           </Link>
+          {data.campaign.status === "active" && (
+            <Link
+              to="/campaigns/$id/play"
+              params={{ id: data.campaign.id }}
+              className="mb-1 flex items-center justify-center gap-2 rounded-xl border border-rpg bg-rpg/10 px-4 py-3 font-display tracking-wide text-rpg"
+            >
+              Rejoindre la partie en cours
+            </Link>
+          )}
           <ul className="flex flex-col gap-2">
             {data.players.map((p) => {
               const profile = p.profile;

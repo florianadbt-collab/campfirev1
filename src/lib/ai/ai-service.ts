@@ -54,8 +54,33 @@ export const AIService = {
       ...o,
     }),
 
-  generateCharacter: (args: { campaignId?: string; description?: string }, o: Options = {}) =>
-    run({ task: "generateCharacter", campaignId: args.campaignId, payload: { ...args }, ...o }),
+  generateCharacter: (
+    args: { campaignId?: string; description?: string; seed?: CampaignSeed },
+    o: Options = {},
+  ) =>
+    run({
+      task: "generateCharacter",
+      campaignId: args.campaignId,
+      payload: { description: args.description ?? "" },
+      context: { ...(args.seed ? { campaignSeed: args.seed } : {}), ...o.context },
+    }),
+
+  importCharacter: (
+    args: {
+      campaignId?: string;
+      documentText?: string;
+      attachments?: { name: string; mimeType: string; dataUrl: string }[];
+      seed?: CampaignSeed;
+    },
+    o: Options = {},
+  ) =>
+    run({
+      task: "importCharacter",
+      campaignId: args.campaignId,
+      payload: { documentText: args.documentText ?? "" },
+      ...(args.attachments ? { attachments: args.attachments } : {}),
+      context: { ...(args.seed ? { campaignSeed: args.seed } : {}), ...o.context },
+    }),
 
   generatePortrait: (args: { characterId?: string; prompt?: string }, o: Options = {}) =>
     run<{ image_url: string | null; image_prompt: string }>({

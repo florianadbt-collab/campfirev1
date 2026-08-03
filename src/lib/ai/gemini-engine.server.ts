@@ -3,6 +3,7 @@
  * Aucune clé d'API n'existe côté navigateur : elle est lue ici, à l'exécution.
  */
 import type { AIDebugInfo, AIRequest, AIResult, AITask, Json, SceneResponse } from "./types";
+import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3.6-flash";
@@ -62,6 +63,71 @@ export function buildPrompt(req: AIRequest): string {
   }
 }
 
+function campaignBrief(req: AIRequest): string[] {
+  const seed = req.context?.campaignSeed;
+  return [
+    `Campagne : ${seed?.name ?? "Sans nom"}`,
+    `Type / ton : ${seed?.type ?? "Libre"}`,
+    `Univers : ${seed?.universe ?? "Non précisé"}`,
+  ];
+}
+
+function buildCharacterPrompt(req: AIRequest): string {
+  const p = req.payload ?? {};
+  const ctx = contextBlock(req);
+  const suffix = ctx ? `\n\n## Contexte du monde\n${ctx}` : "";
+
+  if (req.task === "importCharacter") {
+    const text = String(p["documentText"] ?? "");
+    return (
+      [
+        "Analyse la fiche de personnage fournie (document joint et/ou texte ci-dessous) et convertis-la en JSON.",
+        "RÈGLE ABSOLUE : n'invente jamais une information absente. Laisse une chaîne vide ou un tableau vide.",
+        ...campaignBrief(req),
+        "",
+        text ? `Contenu du document :\n${text.slice(0, 20000)}` : "Le document est joint à ce message.",
+        "",
+        "Réponds avec ce JSON exact :",
+        SHEET_JSON_CONTRACT,
+      ].join("\n") + suffix
+    );
+  }
+
+  const description = String(p["description"] ?? "").trim();
+  return (
+    [
+      "Crée un personnage jouable complet, parfaitement intégré à cet univers.",
+      ...campaignBrief(req),
+      description
+        ? `Souhait du joueur : ${description}`
+        : "Le joueur ne donne aucune indication : surprends-le, mais reste cohérent avec l'univers.",
+      "",
+      "Le personnage doit sembler avoir toujours appartenu à ce monde : nom, race/peuple, classe/métier,",
+      "factions, ton et difficulté de la campagne doivent transparaître. Écris en français.",
+      "motivation : une motivation personnelle intime, en une ou deux phrases.",
+      "attributes : 4 à 6 caractéristiques adaptées au genre. abilities : 3 à 6 compétences. inventory : 3 à 6 objets de départ.",
+      "",
+      "Réponds avec ce JSON exact :",
+      SHEET_JSON_CONTRACT,
+    ].join("\n") + suffix
+  );
+}
+
+const CHARACTER_TASKS = new Set<AITask>(["generateCharacter", "importCharacter"]);
+
+function promptFor(req: AIRequest): string {
+  return CHARACTER_TASKS.has(req.task) ? buildCharacterPrompt(req) : buildPrompt(req);
+}
+
+function userContent(req: AIRequest, prompt: string): unknown {
+  const files = req.attachments ?? [];
+  if (files.length === 0) return prompt;
+  return [
+    { type: "text", text: prompt },
+    ...files.map((f) => ({ type: "image_url", image_url: { url: f.dataUrl } })),
+  ];
+}
+
 /* ------------------------------------------------------------- appel Gemini */
 
 function extractJson(raw: string): unknown {
@@ -78,7 +144,11 @@ function extractJson(raw: string): unknown {
 
 type EngineError = Error & { code?: string; debug?: AIDebugInfo };
 
-async function callGemini(prompt: string, task: AITask): Promise<{ value: unknown; debug: AIDebugInfo }> {
+async function callGemini(
+  prompt: string,
+  task: AITask,
+  content: unknown = prompt,
+): Promise<{ value: unknown; debug: AIDebugInfo }> {
   const apiKey = process.env["LOVABLE_API_KEY"];
   const startedAt = Date.now();
   if (!apiKey) {
@@ -94,7 +164,7 @@ async function callGemini(prompt: string, task: AITask): Promise<{ value: unknow
       model: MODEL,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
+        { role: "user", content },
       ],
       response_format: { type: "json_object" },
     }),
@@ -167,10 +237,10 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
     return { ok: true, task: req.task, data: simulate() as Json, durationMs: Date.now() - startedAt, simulated: true };
   }
 
-  const prompt = buildPrompt(req);
+  const prompt = promptFor(req);
 
   try {
-    const { value, debug } = await callGemini(prompt, req.task);
+    const { value, debug } = await callGemini(prompt, req.task, userContent(req, prompt));
     const data = (req.task === "startCampaign" ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
