@@ -144,7 +144,11 @@ function extractJson(raw: string): unknown {
 
 type EngineError = Error & { code?: string; debug?: AIDebugInfo };
 
-async function callGemini(prompt: string, task: AITask): Promise<{ value: unknown; debug: AIDebugInfo }> {
+async function callGemini(
+  prompt: string,
+  task: AITask,
+  content: unknown = prompt,
+): Promise<{ value: unknown; debug: AIDebugInfo }> {
   const apiKey = process.env["LOVABLE_API_KEY"];
   const startedAt = Date.now();
   if (!apiKey) {
@@ -160,7 +164,7 @@ async function callGemini(prompt: string, task: AITask): Promise<{ value: unknow
       model: MODEL,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
+        { role: "user", content },
       ],
       response_format: { type: "json_object" },
     }),
@@ -233,10 +237,10 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
     return { ok: true, task: req.task, data: simulate() as Json, durationMs: Date.now() - startedAt, simulated: true };
   }
 
-  const prompt = buildPrompt(req);
+  const prompt = promptFor(req);
 
   try {
-    const { value, debug } = await callGemini(prompt, req.task);
+    const { value, debug } = await callGemini(prompt, req.task, userContent(req, prompt));
     const data = (req.task === "startCampaign" ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
