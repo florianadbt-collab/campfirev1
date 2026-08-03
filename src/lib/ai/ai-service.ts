@@ -63,7 +63,6 @@ export const AIService = {
       campaignId: args.campaignId,
       payload: { description: args.description ?? "" },
       context: { ...(args.seed ? { campaignSeed: args.seed } : {}), ...o.context },
-      ...o,
     }),
 
   importCharacter: (
@@ -81,7 +80,6 @@ export const AIService = {
       payload: { documentText: args.documentText ?? "" },
       ...(args.attachments ? { attachments: args.attachments } : {}),
       context: { ...(args.seed ? { campaignSeed: args.seed } : {}), ...o.context },
-      ...o,
     }),
 
   generatePortrait: (args: { characterId?: string; prompt?: string }, o: Options = {}) =>
