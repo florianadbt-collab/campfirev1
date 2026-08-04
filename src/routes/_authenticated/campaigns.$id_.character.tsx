@@ -154,6 +154,25 @@ function CharacterPage() {
     setPortraitBusy(false);
   }
 
+  async function generatePortrait() {
+    setPortraitBusy(true);
+    setError(null);
+    const prompt = [
+      sheet.name,
+      sheet.race,
+      sheet.class_profession,
+      sheet.physical_description,
+      seed?.universe ?? "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+    const result = await AIService.generatePortrait({ prompt: prompt || "adventurer portrait" });
+    const url = (result.data as { image_url?: string | null } | null)?.image_url ?? null;
+    if (url) setSheet((s) => ({ ...s, portrait_url: url }));
+    else setError(result.errorMessage ?? "Le portrait n'a pas pu être généré.");
+    setPortraitBusy(false);
+  }
+
   async function save() {
     if (!userId) return;
     if (!sheet.name.trim()) {
@@ -252,6 +271,7 @@ function CharacterPage() {
           setSheet={setSheet}
           onPortrait={handlePortrait}
           portraitBusy={portraitBusy}
+          onGeneratePortrait={generatePortrait}
           locked={locked}
           busy={busy}
           saved={saved}
@@ -503,6 +523,7 @@ function SheetEditor({
   setSheet,
   onPortrait,
   portraitBusy,
+  onGeneratePortrait,
   locked,
   busy,
   saved,
@@ -512,6 +533,7 @@ function SheetEditor({
   setSheet: React.Dispatch<React.SetStateAction<CharacterSheet>>;
   onPortrait: (f: File) => void;
   portraitBusy: boolean;
+  onGeneratePortrait: () => void;
   locked: boolean;
   busy: boolean;
   saved: boolean;
@@ -528,6 +550,7 @@ function SheetEditor({
         url={sheet.portrait_url}
         busy={portraitBusy}
         onFile={onPortrait}
+        onGenerate={onGeneratePortrait}
         onClear={() => set("portrait_url")(null)}
       />
 
