@@ -333,16 +333,39 @@ function pickAmbience(query: string): string {
 export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
   const startedAt = Date.now();
 
-  const simulate = SIMULATED[req.task];
-  if (simulate) {
-    return { ok: true, task: req.task, data: simulate() as Json, durationMs: Date.now() - startedAt, simulated: true };
+  if (req.task === "generateMusic") {
+    const query = String(req.payload?.["query"] ?? "dark fantasy ambient");
+    return {
+      ok: true,
+      task: req.task,
+      data: { music_url: pickAmbience(query), music_query: query } as Json,
+      durationMs: Date.now() - startedAt,
+    };
   }
 
+  if (IMAGE_TASKS.has(req.task)) {
+    const basePrompt = String(req.payload?.["prompt"] ?? "").trim();
+    const imagePrompt =
+      req.task === "generatePortrait"
+        ? `Character portrait, painterly fantasy illustration, head and shoulders, dramatic lighting. ${basePrompt}`
+        : `Wide cinematic fantasy scene illustration, atmospheric lighting. ${basePrompt}`;
+    const url = await generateImage(imagePrompt);
+    return {
+      ok: true,
+      task: req.task,
+      data: { image_url: url, image_prompt: imagePrompt } as Json,
+      durationMs: Date.now() - startedAt,
+      ...(url ? {} : { simulated: true }),
+    };
+  }
+
+  if (req.task === "playTurn") await attachHistory(req);
   const prompt = promptFor(req);
 
   try {
     const { value, debug } = await callGemini(prompt, req.task, userContent(req, prompt));
-    const data = (req.task === "startCampaign" ? normalizeScene(value) : value) as Json;
+    const isScene = req.task === "startCampaign" || req.task === "playTurn";
+    const data = (isScene ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
 
@@ -377,6 +400,27 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
           }
         : {}),
     };
+  }
+}
+
+/** Injecte les dernières scènes dans le contexte pour garder la continuité. */
+async function attachHistory(req: AIRequest) {
+  if (!req.campaignId) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("messages")
+      .select("role, content, metadata")
+      .eq("campaign_id", req.campaignId)
+      .order("created_at", { ascending: false })
+      .limit(12);
+    const timeline = (data ?? []).reverse().map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+    req.context = { ...(req.context ?? {}), worldTimeline: timeline as Json };
+  } catch (e) {
+    console.error("[gemini-engine] history failed:", (e as Error).message);
   }
 }
 
