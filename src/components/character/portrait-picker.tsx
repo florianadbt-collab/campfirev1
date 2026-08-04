@@ -1,17 +1,19 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Sparkles, X } from "lucide-react";
 
-/** Portrait : upload, glisser-déposer, placeholder élégant. Génération IA à venir. */
+/** Portrait : upload, glisser-déposer, génération IA. */
 export function PortraitPicker({
   url,
   busy,
   onFile,
   onClear,
+  onGenerate,
 }: {
   url: string | null;
   busy?: boolean;
   onFile: (file: File) => void;
   onClear: () => void;
+  onGenerate?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -85,9 +87,16 @@ export function PortraitPicker({
         >
           Choisir une image
         </button>
-        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5 text-rpg/60" /> génération IA bientôt
-        </span>
+        {onGenerate && (
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={busy}
+            className="inline-flex items-center gap-1 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2 text-xs text-rpg disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Générer par IA
+          </button>
+        )}
       </div>
     </div>
   );

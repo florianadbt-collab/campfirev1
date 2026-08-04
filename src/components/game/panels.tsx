@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Dices, Map, Music4, Swords } from "lucide-react";
 import type { Attribute } from "@/lib/character-sheet";
 
 export function PanelCard({
@@ -127,26 +126,30 @@ export function PartyPanel({
   );
 }
 
-/** Emplacements réservés aux modules à venir : musique, dés, combat, cartes. */
-export function ComingSoonSlot({
-  kind,
+/** Liste simple réutilisée par les menus (quêtes, codex, relations...). */
+export function SimpleList({
+  items,
+  empty,
 }: {
-  kind: "spotify" | "dice" | "combat" | "map";
+  items: { id: string; title: string; text?: string; badge?: string }[];
+  empty: string;
 }) {
-  const conf = {
-    spotify: { icon: Music4, title: "Ambiance sonore", text: "Bande-son adaptative — bientôt." },
-    dice: { icon: Dices, title: "Lancer de dés", text: "Jets 3D et demandes du MJ — bientôt." },
-    combat: { icon: Swords, title: "Combat", text: "Initiative et tour par tour — bientôt." },
-    map: { icon: Map, title: "Carte", text: "Lieux explorés et déplacements — bientôt." },
-  }[kind];
-  const Icon = conf.icon;
+  if (items.length === 0) return <p className="text-xs text-muted-foreground">{empty}</p>;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-dashed border-rpg/25 bg-card/40 p-3">
-      <Icon className="h-5 w-5 shrink-0 text-rpg/60" />
-      <div className="min-w-0">
-        <p className="truncate font-display text-sm tracking-wide text-foreground/80">{conf.title}</p>
-        <p className="truncate text-[11px] text-muted-foreground">{conf.text}</p>
-      </div>
-    </div>
+    <ul className="flex flex-col gap-2">
+      {items.map((it) => (
+        <li key={it.id} className="rounded-xl border border-rpg/20 bg-secondary px-3 py-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <p className="min-w-0 truncate font-display text-sm tracking-wide text-foreground">{it.title}</p>
+            {it.badge && (
+              <span className="shrink-0 rounded-full border border-rpg/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-rpg">
+                {it.badge}
+              </span>
+            )}
+          </div>
+          {it.text && <p className="pt-1 text-xs text-muted-foreground">{it.text}</p>}
+        </li>
+      ))}
+    </ul>
   );
 }

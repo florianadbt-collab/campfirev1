@@ -1,18 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Send, User } from "lucide-react";
+import { ArrowLeft, Dices, Loader2, PenLine, Send, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
 import {
   AbilitiesPanel,
-  ComingSoonSlot,
   InventoryPanel,
   JournalPanel,
   PartyPanel,
   StatsPanel,
 } from "@/components/game/panels";
+import { AmbianceBar } from "@/components/game/ambiance-bar";
+import { GameMenus } from "@/components/game/game-menus";
+import { MusicPlayer } from "@/components/game/music-player";
+import { IllustrationSlot } from "@/components/game/illustration";
+import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
 
@@ -41,6 +45,8 @@ function PlayPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [dice, setDice] = useState<DiceRequest | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -143,7 +149,17 @@ function PlayPage() {
     return undefined;
   }, [messages]);
 
-  async function send(text: string) {
+  const scenes = useMemo(
+    () =>
+      messages
+        .filter((m) => m.role === "gm")
+        .map((m) => (m.metadata ?? {}) as Partial<SceneResponse>),
+    [messages],
+  );
+
+  const isGm = data?.campaign?.owner_id === userId;
+
+  async function send(text: string, roll?: DiceOutcome) {
     const value = text.trim();
     if (!value || !userId || busy) return;
     setBusy(true);
@@ -154,7 +170,9 @@ function PlayPage() {
       campaign_id: id,
       user_id: userId,
       role: "player",
-      content: value,
+      content: roll
+        ? `${value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${roll.success ? "réussite" : "échec"})`
+        : value,
     });
     if (insertError) {
       setError(insertError.message);
@@ -165,15 +183,37 @@ function PlayPage() {
 
     const result = await AIService.playTurn({
       campaignId: id,
-      intent: { text: value, character: mySheet.name || null },
+      intent: {
+        text: value,
+        character: mySheet.name || null,
+        ...(roll
+          ? {
+              roll: {
+                formula: roll.formula,
+                total: roll.total,
+                threshold: roll.threshold,
+                success: roll.success,
+                manual: roll.manual,
+              },
+            }
+          : {}),
+      },
     });
     setAiResult(result);
     if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+    const scene = result.data as SceneResponse | null;
+    if (scene?.dice_request?.formula) setDice(scene.dice_request);
     queryClient.invalidateQueries({ queryKey: ["play", id] });
     setBusy(false);
   }
 
   const suggestions = Array.isArray(lastScene?.suggested_actions) ? lastScene!.suggested_actions : [];
+  const ambiance = {
+    location: lastScene?.location ?? "",
+    world_time: lastScene?.world_time ?? "",
+    weather: lastScene?.weather ?? "",
+    tension: typeof lastScene?.tension === "number" ? lastScene.tension : 20,
+  };
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col bg-background">
@@ -195,15 +235,33 @@ function PlayPage() {
             {lastScene?.scene_title ?? data?.campaign?.genre ?? "Aventure"}
           </p>
         </div>
-        <Link
-          to="/campaigns/$id/character"
-          params={{ id }}
-          aria-label="Ma fiche"
-          className="shrink-0 rounded-full border border-rpg/30 bg-card p-2 text-rpg"
-        >
-          <User className="h-5 w-5" />
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <ul className="hidden -space-x-2 sm:flex">
+            {party.slice(0, 4).map((m) => (
+              <li
+                key={m.user_id}
+                title={m.name}
+                className="h-8 w-8 overflow-hidden rounded-full border border-rpg/40 bg-secondary"
+              >
+                {m.portrait_url ? (
+                  <img src={m.portrait_url} alt={m.name} className="h-full w-full object-cover" />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <Link
+            to="/campaigns/$id/character"
+            params={{ id }}
+            aria-label="Ma fiche"
+            className="shrink-0 rounded-full border border-rpg/30 bg-card p-2 text-rpg"
+          >
+            <User className="h-5 w-5" />
+          </Link>
+        </div>
       </header>
+
+      <AmbianceBar ambiance={ambiance} />
+      <GameMenus campaignId={id} sheet={mySheet} scenes={scenes} journal={journal} party={party} />
 
       {/* Onglets mobile */}
       <nav className="grid grid-cols-3 gap-1 border-b border-rpg/15 px-4 py-2 lg:hidden">
@@ -233,7 +291,7 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
-          <ComingSoonSlot kind="combat" />
+          <MusicPlayer canControl={Boolean(isGm)} {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})} />
         </aside>
 
         {/* Zone centrale */}
@@ -247,6 +305,9 @@ function PlayPage() {
             {messages.map((m) => {
               const meta = (m.metadata ?? {}) as Record<string, unknown>;
               const isGm = m.role === "gm";
+              const dialogues = Array.isArray(meta["dialogues"])
+                ? (meta["dialogues"] as { speaker?: string; line?: string }[])
+                : [];
               return (
                 <li
                   key={m.id}
@@ -268,6 +329,21 @@ function PlayPage() {
                   >
                     {m.content}
                   </p>
+                  {dialogues.length > 0 && (
+                    <ul className="flex flex-col gap-2 pt-3">
+                      {dialogues.map((d, i) => (
+                        <li
+                          key={i}
+                          className="rounded-2xl rounded-bl-sm border border-rpg/30 bg-secondary px-3 py-2"
+                        >
+                          <p className="truncate font-display text-[11px] uppercase tracking-wider text-rpg">
+                            {d.speaker}
+                          </p>
+                          <p className="text-sm italic text-foreground">« {d.line} »</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
@@ -290,8 +366,14 @@ function PlayPage() {
         <aside className={`flex flex-col gap-3 ${tab === "journal" ? "" : "hidden"} lg:flex`}>
           <JournalPanel entries={journal} />
           <PartyPanel members={party} />
-          <ComingSoonSlot kind="map" />
-          <ComingSoonSlot kind="spotify" />
+          <IllustrationSlot
+            kind="scene"
+            campaignId={id}
+            prompt={lastScene?.image_prompt || lastScene?.scene_title || "fantasy landscape"}
+          />
+          <div className="lg:hidden">
+            <MusicPlayer canControl={Boolean(isGm)} {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})} />
+          </div>
         </aside>
       </div>
 
@@ -311,6 +393,15 @@ function PlayPage() {
                 </button>
               </li>
             ))}
+            <li className="shrink-0">
+              <button
+                type="button"
+                onClick={() => document.getElementById("free-action")?.focus()}
+                className="flex items-center gap-1 rounded-full border border-rpg/40 bg-rpg/10 px-3 py-1.5 text-xs text-rpg"
+              >
+                <PenLine className="h-3.5 w-3.5" /> Action libre
+              </button>
+            </li>
           </ul>
         )}
         <form
@@ -321,23 +412,49 @@ function PlayPage() {
           className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2"
         >
           <textarea
+            id="free-action"
             className="rpg-input max-h-32 min-h-12 resize-none"
             rows={1}
             value={intent}
             onChange={(e) => setIntent(e.target.value)}
-            placeholder="Que faites-vous ?"
+            placeholder="Que fait votre personnage ?"
           />
-          <button
-            type="submit"
-            disabled={busy || !intent.trim()}
-            aria-label="Envoyer"
-            className="shrink-0 rounded-xl border border-rpg/40 bg-card p-3 text-rpg disabled:opacity-40"
-          >
-            <Send className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setDice({ formula: "1d20", threshold: 10, reason: "Jet libre" })}
+              aria-label="Lancer les dés"
+              className="rounded-xl border border-rpg/30 bg-card p-3 text-rpg"
+            >
+              <Dices className="h-5 w-5" />
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !intent.trim()}
+              aria-label="Envoyer"
+              className="rounded-xl border border-rpg/40 bg-card p-3 text-rpg disabled:opacity-40"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </div>
         </form>
-        <ComingSoonSlot kind="dice" />
       </footer>
+
+      {dice && (
+        <DiceRollerDialog
+          request={dice}
+          onCancel={() => {
+            setDice(null);
+            setPendingAction(null);
+          }}
+          onResolved={(outcome) => {
+            const text = pendingAction ?? `Je tente : ${dice.reason}`;
+            setDice(null);
+            setPendingAction(null);
+            void send(text, outcome);
+          }}
+        />
+      )}
     </div>
   );
 }
