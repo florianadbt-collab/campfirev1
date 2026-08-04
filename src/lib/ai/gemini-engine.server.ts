@@ -254,6 +254,24 @@ function normalizeScene(value: unknown): SceneResponse {
   const actions = Array.isArray(v["suggested_actions"])
     ? (v["suggested_actions"] as unknown[]).map(String)
     : [];
+  const dialogues = Array.isArray(v["dialogues"])
+    ? (v["dialogues"] as unknown[])
+        .map((d) => {
+          const o = (d ?? {}) as Record<string, unknown>;
+          return { speaker: String(o["speaker"] ?? "").trim(), line: String(o["line"] ?? "").trim() };
+        })
+        .filter((d) => d.speaker && d.line)
+    : [];
+  const dr = v["dice_request"] as Record<string, unknown> | null | undefined;
+  const diceRequest =
+    dr && typeof dr === "object" && typeof dr["formula"] === "string" && dr["formula"]
+      ? {
+          formula: String(dr["formula"]),
+          threshold: Number(dr["threshold"] ?? 10) || 10,
+          reason: String(dr["reason"] ?? "Test"),
+          ability: String(dr["ability"] ?? ""),
+        }
+      : null;
   return {
     scene_title: String(v["scene_title"] ?? "Ouverture"),
     narration: String(v["narration"] ?? ""),
@@ -261,15 +279,54 @@ function normalizeScene(value: unknown): SceneResponse {
     music_query: String(v["music_query"] ?? ""),
     image_prompt: String(v["image_prompt"] ?? ""),
     suggested_actions: actions,
+    location: String(v["location"] ?? ""),
+    world_time: String(v["world_time"] ?? ""),
+    weather: String(v["weather"] ?? ""),
+    tension: Math.max(0, Math.min(100, Number(v["tension"] ?? 20) || 0)),
+    dialogues,
+    dice_request: diceRequest,
   };
 }
 
-/** Tâches non encore branchées sur un modèle : réponse simulée, contrat définitif. */
-const SIMULATED: Partial<Record<AITask, () => Json>> = {
-  generatePortrait: () => ({ image_url: null, image_prompt: "portrait placeholder" }),
-  generateSceneImage: () => ({ image_url: null, image_prompt: "scene placeholder" }),
-  generateMusic: () => ({ music_url: null, music_query: "dark fantasy ambient" }),
-};
+/* ------------------------------------------------------------------- images */
+
+const IMAGE_TASKS = new Set<AITask>(["generatePortrait", "generateSceneImage"]);
+
+async function generateImage(prompt: string): Promise<string | null> {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) return null;
+  const response = await fetch(GATEWAY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      modalities: ["image", "text"],
+    }),
+  });
+  if (!response.ok) {
+    console.error(`[gemini-engine] image failed [${response.status}]: ${await response.text()}`);
+    return null;
+  }
+  const json = (await response.json()) as {
+    choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+  };
+  return json.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? null;
+}
+
+/** Ambiances sonores libres de droits — remplacées par Spotify en V2. */
+const AMBIENCES: { key: string; url: string }[] = [
+  { key: "tavern", url: "https://cdn.pixabay.com/audio/2022/03/15/audio_c8c8a73467.mp3" },
+  { key: "forest", url: "https://cdn.pixabay.com/audio/2021/10/25/audio_65a3d1b1a3.mp3" },
+  { key: "battle", url: "https://cdn.pixabay.com/audio/2022/10/30/audio_347111d3b6.mp3" },
+];
+
+function pickAmbience(query: string): string {
+  const q = query.toLowerCase();
+  if (/(battle|combat|fight|danger|chase)/.test(q)) return AMBIENCES[2]!.url;
+  if (/(forest|wild|nature|travel|road|exploration)/.test(q)) return AMBIENCES[1]!.url;
+  return AMBIENCES[0]!.url;
+}
 
 /* --------------------------------------------------------------- entrypoint */
 
