@@ -7,6 +7,7 @@ import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3.6-flash";
+const IMAGE_MODEL = "google/gemini-3-pro-image-preview";
 
 /* ------------------------------------------------------------------ prompts */
 
@@ -31,8 +32,29 @@ function contextBlock(req: AIRequest): string {
 
 const SYSTEM_PROMPT =
   "Tu es le Maître du Jeu (MJ) de Campfire, un jeu de rôle narratif. " +
-  "Tu écris en français, de façon immersive et concise. " +
+  "Tu écris en français simple et naturel, comme un très bon MJ humain à une table. " +
+  "Phrases courtes. Vocabulaire courant, jamais littéraire ni pompeux. " +
+  "Tu décris ce qui se passe, tu ne fais pas de poésie. Pas de métaphores rares, pas de mots savants. " +
+  "La narration est l'essentiel : les dialogues restent rares et courts. " +
   "Tu réponds TOUJOURS avec un unique objet JSON valide, sans texte autour, sans balises markdown.";
+
+const SCENE_JSON_CONTRACT =
+  '{"scene_title":string,"narration":string,"scene_mood":string,"location":string,"world_time":string,' +
+  '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
+  '"dialogues":[{"speaker":string,"line":string}],' +
+  '"dice_request":{"formula":string,"threshold":number,"reason":string,"ability":string}|null,' +
+  '"suggested_actions":[string,string,string]}';
+
+const SCENE_RULES = [
+  "Règles de rédaction :",
+  "- narration : 100 à 180 mots, phrases courtes, langage parlé mais soigné, au présent.",
+  "- dialogues : 0 à 2 répliques maximum, uniquement si un personnage parle vraiment. Sinon tableau vide.",
+  "- tension : entier de 0 à 100.",
+  "- location, world_time (ex: \"Jour 3 — 17h20\"), weather : toujours renseignés, en français.",
+  "- music_query et image_prompt en anglais.",
+  "- suggested_actions : 3 ou 4 actions courtes, concrètes, à la 2e personne.",
+  "- dice_request : uniquement si l'action demande un test incertain, sinon null. formula type \"1d20\", threshold entier.",
+].join("\n");
 
 export function buildPrompt(req: AIRequest): string {
   const p = req.payload ?? {};
@@ -52,10 +74,32 @@ export function buildPrompt(req: AIRequest): string {
           `Le MJ participe aussi comme joueur : ${seed?.gmPlays ? "oui" : "non"}`,
           `Personnages créés : ${characters.length ? JSON.stringify(characters) : "aucun pour l'instant"}`,
           "",
+          SCENE_RULES,
+          "Pour l'ouverture, dice_request doit être null.",
+          "",
           "Réponds avec ce JSON exact :",
-          '{"scene_title":string,"narration":string,"scene_mood":string,"music_query":string,"image_prompt":string,"suggested_actions":[string,string,string]}',
-          "narration : 120 à 200 mots. music_query et image_prompt en anglais.",
+          SCENE_JSON_CONTRACT,
         ].join("\n") + suffix
+      );
+    }
+    case "playTurn": {
+      const intent = req.context?.playerIntent as Record<string, unknown> | undefined;
+      const roll = intent?.["roll"];
+      return (
+        [
+          "Poursuis la partie. Voici ce que fait le joueur :",
+          `Personnage : ${String(intent?.["character"] ?? "Un joueur")}`,
+          `Action : ${String(intent?.["text"] ?? "")}`,
+          roll ? `Résultat de dés fourni : ${JSON.stringify(roll)}. Tiens-en compte dans l'issue.` : "",
+          "",
+          "Enchaîne directement sur les conséquences. Reste cohérent avec les scènes précédentes.",
+          SCENE_RULES,
+          "",
+          "Réponds avec ce JSON exact :",
+          SCENE_JSON_CONTRACT,
+        ]
+          .filter(Boolean)
+          .join("\n") + suffix
       );
     }
     default:
