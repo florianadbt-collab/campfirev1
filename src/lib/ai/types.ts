@@ -70,6 +70,20 @@ export type SceneResponse = {
   music_query: string;
   image_prompt: string;
   suggested_actions: string[];
+  /** Barre d'ambiance — alimentée par le MJ IA. */
+  location?: string;
+  world_time?: string;
+  weather?: string;
+  tension?: number;
+  /** Répliques ponctuelles, affichées en bulles. */
+  dialogues?: { speaker: string; line: string }[];
+  /** Test de dés demandé par le MJ avant de poursuivre. */
+  dice_request?: {
+    formula: string;
+    threshold: number;
+    reason: string;
+    ability?: string;
+  } | null;
 }
 
 export interface AIDebugInfo {
