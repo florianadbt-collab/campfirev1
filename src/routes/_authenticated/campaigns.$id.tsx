@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Play, Check } from "lucide-react";
+import { ArrowLeft, Copy, Play, Check, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +66,8 @@ function CampaignPage() {
   const [scene, setScene] = useState<SceneResponse | null>(null);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: u }) => setUserId(u.user?.id ?? null));
@@ -154,6 +156,23 @@ function CampaignPage() {
 
   const nonGmPlayers = data.players.filter((p) => p.role !== "gm");
   const allReady = nonGmPlayers.length > 0 && nonGmPlayers.every((p) => p.status === "ready");
+
+  async function deleteCampaign() {
+    setBusy(true);
+    setDeleteError(null);
+    const tables = ["dice_rolls", "dice_requests", "messages", "campaign_memory", "characters", "campaign_players"] as const;
+    for (const table of tables) {
+      await supabase.from(table).delete().eq("campaign_id", id);
+    }
+    const { error } = await supabase.from("campaigns").delete().eq("id", id);
+    setBusy(false);
+    if (error) {
+      setDeleteError(error.message);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    navigate({ to: "/home" });
+  }
 
   return (
     <MobileShell>
@@ -290,6 +309,13 @@ function CampaignPage() {
             </p>
           )}
           <AIDebugPanel result={aiResult} />
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 font-display tracking-wide text-destructive"
+          >
+            <Trash2 className="h-4 w-4 shrink-0" /> Supprimer la campagne
+          </button>
           </>
         ) : me ? (
           <button
@@ -322,6 +348,36 @@ function CampaignPage() {
               </ul>
             )}
           </section>
+        )}
+
+        {confirmDelete && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur">
+            <div className="w-full max-w-sm rounded-3xl border border-destructive/40 bg-card p-5">
+              <h2 className="font-display text-lg tracking-wide text-foreground">Supprimer définitivement ?</h2>
+              <p className="pt-2 text-sm text-muted-foreground">
+                La campagne « {data.campaign.name} », ses personnages, son journal et tous ses messages seront
+                effacés. Cette action est irréversible.
+              </p>
+              {deleteError && <p className="pt-2 text-sm text-destructive">{deleteError}</p>}
+              <div className="grid grid-cols-2 gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-xl border border-rpg/30 bg-secondary px-4 py-3 font-display tracking-wide text-foreground"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteCampaign}
+                  disabled={busy}
+                  className="rounded-xl border border-destructive/60 bg-destructive/20 px-4 py-3 font-display tracking-wide text-destructive disabled:opacity-50"
+                >
+                  {busy ? "Suppression…" : "Supprimer"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </section>
     </MobileShell>
