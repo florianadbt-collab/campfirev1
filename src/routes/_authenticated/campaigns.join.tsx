@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,14 +11,41 @@ export const Route = createFileRoute("/_authenticated/campaigns/join")({
       { name: "description", content: "Rejoignez une campagne avec un code d'invitation." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    campaign: typeof search["campaign"] === "string" ? (search["campaign"] as string) : undefined,
+  }),
   component: JoinCampaignPage,
 });
 
 function JoinCampaignPage() {
   const navigate = useNavigate();
+  const { campaign: campaignParam } = Route.useSearch();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Arrivée par QR Code : on rejoint automatiquement puis on ouvre le lobby. */
+  useEffect(() => {
+    if (!campaignParam) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return;
+      await supabase
+        .from("campaign_players")
+        .upsert(
+          { campaign_id: campaignParam, user_id: userId, role: "player", status: "connected" },
+          { onConflict: "campaign_id,user_id" },
+        );
+      if (cancelled) return;
+      navigate({ to: "/campaigns/$id", params: { id: campaignParam }, replace: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignParam, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
