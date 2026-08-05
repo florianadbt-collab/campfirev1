@@ -171,7 +171,15 @@ function PlayPage() {
       user_id: userId,
       role: "player",
       content: roll
-        ? `${value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${roll.success ? "réussite" : "échec"})`
+        ? `${value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${
+            roll.critical === "success"
+              ? "réussite critique"
+              : roll.critical === "failure"
+                ? "échec critique"
+                : roll.success
+                  ? "réussite"
+                  : "échec"
+          })`
         : value,
     });
     if (insertError) {
@@ -194,6 +202,7 @@ function PlayPage() {
                 threshold: roll.threshold,
                 success: roll.success,
                 manual: roll.manual,
+                critical: roll.critical,
               },
             }
           : {}),
@@ -202,7 +211,10 @@ function PlayPage() {
     setAiResult(result);
     if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
     const scene = result.data as SceneResponse | null;
-    if (scene?.dice_request?.formula) setDice(scene.dice_request);
+    if (scene?.dice_request?.formula) {
+      setPendingAction(value);
+      setDice(scene.dice_request);
+    }
     queryClient.invalidateQueries({ queryKey: ["play", id] });
     setBusy(false);
   }
