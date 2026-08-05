@@ -4,7 +4,26 @@ import { rollFormula, type DiceRoll } from "@/lib/game/dice";
 
 export type DiceRequest = { formula: string; threshold: number; reason: string; ability?: string };
 
-export type DiceOutcome = DiceRoll & { threshold: number; success: boolean; manual: boolean };
+export type DiceOutcome = DiceRoll & {
+  threshold: number;
+  success: boolean;
+  manual: boolean;
+  critical: "success" | "failure" | null;
+};
+
+/** Réussite / échec critique : uniquement sur un d20 unique. */
+function criticalOf(formula: string, dice: number[]): "success" | "failure" | null {
+  if (!/d\s*20/i.test(formula) || dice.length !== 1) return null;
+  if (dice[0] === 20) return "success";
+  if (dice[0] === 1) return "failure";
+  return null;
+}
+
+function outcomeLabel(o: DiceOutcome) {
+  if (o.critical === "success") return "Réussite critique";
+  if (o.critical === "failure") return "Échec critique";
+  return o.success ? "Réussite" : "Échec";
+}
 
 /** Choix « vrais dés » ou « lancer dans Campfire », avec animation puis détail du jet. */
 export function DiceRollerDialog({
@@ -29,7 +48,13 @@ export function DiceRollerDialog({
     setMode("rolling");
     window.setTimeout(() => {
       const r = rollFormula(request.formula);
-      finish({ ...r, threshold: request.threshold, success: r.total >= request.threshold, manual: false });
+      finish({
+        ...r,
+        threshold: request.threshold,
+        success: r.total >= request.threshold,
+        manual: false,
+        critical: criticalOf(request.formula, r.dice),
+      });
     }, 900);
   }
 
@@ -44,6 +69,7 @@ export function DiceRollerDialog({
       threshold: request.threshold,
       success: total >= request.threshold,
       manual: true,
+      critical: criticalOf(request.formula, [total]),
     });
   }
 
@@ -98,7 +124,7 @@ export function DiceRollerDialog({
         {mode === "manual" && (
           <div className="flex flex-col gap-3">
             <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="dice-manual">
-              Résultat obtenu ({request.formula})
+              Quel résultat avez-vous obtenu ? ({request.formula})
             </label>
             <input
               id="dice-manual"
@@ -125,12 +151,19 @@ export function DiceRollerDialog({
           <div className="flex flex-col gap-3">
             <dl className="grid grid-cols-2 gap-2 text-sm">
               <Row label="Dé lancé" value={outcome.formula} />
-              <Row label="Résultat" value={outcome.dice.join(" + ")} />
-              <Row label="Bonus" value={outcome.bonus >= 0 ? `+${outcome.bonus}` : String(outcome.bonus)} />
+              <Row label="Résultat brut" value={outcome.dice.join(" + ")} />
+              <Row
+                label="Modificateurs"
+                value={outcome.bonus >= 0 ? `+${outcome.bonus}` : String(outcome.bonus)}
+              />
               <Row label="Total" value={String(outcome.total)} />
-              <Row label="Seuil" value={String(outcome.threshold)} />
-              <Row label="Issue" value={outcome.success ? "Réussite" : "Échec"} />
+              <Row label="Difficulté" value={String(outcome.threshold)} />
+              <Row label="Issue" value={outcomeLabel(outcome)} />
             </dl>
+            <p className="text-[11px] text-muted-foreground">
+              {outcome.total} contre une difficulté de {outcome.threshold} :{" "}
+              {outcome.success ? "le test passe." : "le test échoue."}
+            </p>
             <button type="button" onClick={() => onResolved(outcome)} className="rpg-button">
               <span className="font-display tracking-wide">Poursuivre le récit</span>
             </button>
