@@ -4,13 +4,18 @@ import {
   BookOpen,
   Backpack,
   Handshake,
+  Home,
   Library,
   Map as MapIcon,
+  Menu as MenuIcon,
   ScrollText,
+  Settings,
   Sparkles,
   Target,
+  Theater,
   TreeDeciduous,
   User,
+  Wand2,
   X,
 } from "lucide-react";
 import {
@@ -22,6 +27,8 @@ import {
   StatsPanel,
 } from "@/components/game/panels";
 import { IllustrationSlot } from "@/components/game/illustration";
+import { GmTools } from "@/components/game/gm-tools";
+import type { Ambiance } from "@/components/game/ambiance-bar";
 import type { CharacterSheet } from "@/lib/character-sheet";
 import type { SceneResponse } from "@/lib/ai/types";
 
@@ -30,38 +37,60 @@ type MenuKey =
   | "inventaire"
   | "progression"
   | "capacites"
+  | "sorts"
   | "quetes"
   | "journal"
   | "carte"
   | "codex"
-  | "relations";
+  | "relations"
+  | "mj"
+  | "parametres";
 
-const MENUS: { key: MenuKey; label: string; icon: typeof User }[] = [
+type Entry = { key: MenuKey; label: string; icon: typeof User; gmOnly?: boolean };
+
+const ENTRIES: Entry[] = [
   { key: "perso", label: "Personnage", icon: User },
   { key: "inventaire", label: "Inventaire", icon: Backpack },
   { key: "progression", label: "Progression", icon: TreeDeciduous },
-  { key: "capacites", label: "Capacités", icon: ScrollText },
-  { key: "quetes", label: "Quêtes", icon: Target },
+  { key: "capacites", label: "Arbre de compétences", icon: ScrollText },
+  { key: "sorts", label: "Livre de sorts", icon: Wand2 },
+  { key: "quetes", label: "Journal des quêtes", icon: Target },
   { key: "journal", label: "Journal", icon: BookOpen },
-  { key: "carte", label: "Carte", icon: MapIcon },
-  { key: "codex", label: "Codex", icon: Library },
-  { key: "relations", label: "Relations", icon: Handshake },
+  { key: "carte", label: "Carte", icon: MapIcon, gmOnly: true },
+  { key: "codex", label: "Codex", icon: Library, gmOnly: true },
+  { key: "relations", label: "Relations", icon: Handshake, gmOnly: true },
+  { key: "mj", label: "🎭 Outils MJ", icon: Theater, gmOnly: true },
+  { key: "parametres", label: "Paramètres", icon: Settings },
 ];
 
+const SPELL_RE = /sort|magi|incant|arcan|rune|sortil/i;
+
+/** Menu unique de la partie : un seul bouton ☰ ouvre tout le panneau latéral. */
 export function GameMenus({
   campaignId,
   sheet,
   scenes,
   journal,
   party,
+  isGm = false,
+  ambiance,
+  musicSuggestion,
+  turns = 0,
 }: {
   campaignId: string;
   sheet: CharacterSheet;
   scenes: Partial<SceneResponse>[];
   journal: { id: string; title: string; text: string }[];
   party: { user_id: string; name: string; portrait_url: string | null; role: string }[];
+  isGm?: boolean;
+  ambiance: Ambiance;
+  musicSuggestion?: string;
+  turns?: number;
 }) {
+  const [drawer, setDrawer] = useState(false);
   const [open, setOpen] = useState<MenuKey | null>(null);
+
+  const entries = ENTRIES.filter((e) => isGm || !e.gmOnly);
 
   const locations = useMemo(() => {
     const seen = new Map<string, string>();
@@ -99,31 +128,80 @@ export function GameMenus({
     [scenes],
   );
 
+  const spells = sheet.abilities.filter((a) => SPELL_RE.test(a));
+  const skills = sheet.abilities.filter((a) => !SPELL_RE.test(a));
+
   const xp = journal.length * 120;
   const nextLevel = (sheet.level + 1) * 500;
 
+  function pick(key: MenuKey) {
+    setDrawer(false);
+    setOpen(key);
+  }
+
   return (
     <>
-      <nav aria-label="Menus de jeu" className="flex gap-2 overflow-x-auto px-4 py-2">
-        {MENUS.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => setOpen(m.key)}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-rpg/25 bg-card px-3 py-1.5 text-[11px] text-foreground"
-          >
-            <m.icon className="h-3.5 w-3.5 shrink-0 text-rpg" />
-            {m.label}
-          </button>
-        ))}
-      </nav>
+      <button
+        type="button"
+        onClick={() => setDrawer(true)}
+        aria-label="Ouvrir le menu de jeu"
+        className="flex shrink-0 items-center gap-2 rounded-full border border-rpg/30 bg-card px-3 py-2 text-rpg"
+      >
+        <MenuIcon className="h-5 w-5" />
+        <span className="font-display text-xs uppercase tracking-wider">Menu</span>
+      </button>
 
+      {/* Panneau latéral */}
+      {drawer && (
+        <div className="fixed inset-0 z-50 flex bg-background/80 backdrop-blur" onClick={() => setDrawer(false)}>
+          <nav
+            aria-label="Menu de jeu"
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-full w-[82%] max-w-xs flex-col gap-1 overflow-y-auto border-r border-rpg/25 bg-card p-4"
+          >
+            <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <h2 className="truncate font-display text-lg tracking-wide text-foreground">Campfire</h2>
+              <button
+                type="button"
+                onClick={() => setDrawer(false)}
+                aria-label="Fermer le menu"
+                className="shrink-0 rounded-full border border-rpg/30 p-1.5 text-rpg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            {entries.map((e) => (
+              <button
+                key={e.key}
+                type="button"
+                onClick={() => pick(e.key)}
+                className="flex items-center gap-3 rounded-xl border border-rpg/20 bg-secondary px-3 py-2.5 text-left text-sm text-foreground"
+              >
+                <e.icon className="h-4 w-4 shrink-0 text-rpg" />
+                <span className="min-w-0 truncate">{e.label}</span>
+              </button>
+            ))}
+
+            <Link
+              to="/home"
+              onClick={() => setDrawer(false)}
+              className="mt-3 flex items-center gap-3 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg"
+            >
+              <Home className="h-4 w-4 shrink-0" />
+              Retour au menu principal
+            </Link>
+          </nav>
+        </div>
+      )}
+
+      {/* Feuille de contenu */}
       {open && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end bg-background/80 backdrop-blur">
-          <div className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-rpg/30 bg-card p-4">
+          <div className="max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-rpg/30 bg-card p-4">
             <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
               <h2 className="truncate font-display text-lg tracking-wide text-foreground">
-                {MENUS.find((m) => m.key === open)?.label}
+                {ENTRIES.find((m) => m.key === open)?.label}
               </h2>
               <button
                 type="button"
@@ -164,7 +242,18 @@ export function GameMenus({
               )}
 
               {open === "inventaire" && <InventoryPanel items={sheet.inventory} />}
-              {open === "capacites" && <AbilitiesPanel items={sheet.abilities} />}
+              {open === "capacites" && (
+                <>
+                  <AbilitiesPanel items={skills} />
+                  <StatsPanel attributes={sheet.attributes} level={sheet.level} />
+                </>
+              )}
+              {open === "sorts" && (
+                <SimpleList
+                  items={spells.map((s, i) => ({ id: `${s}-${i}`, title: s }))}
+                  empty="Aucun sort connu pour l'instant."
+                />
+              )}
               {open === "journal" && <JournalPanel entries={journal} />}
 
               {open === "progression" && (
@@ -234,6 +323,43 @@ export function GameMenus({
                     prompt={relations.at(-1)?.title ?? "mysterious stranger"}
                   />
                 </>
+              )}
+
+              {open === "mj" && isGm && (
+                <GmTools
+                  campaignId={campaignId}
+                  ambiance={ambiance}
+                  scenes={scenes}
+                  turns={turns}
+                  {...(musicSuggestion ? { musicSuggestion } : {})}
+                />
+              )}
+
+              {open === "parametres" && (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to="/campaigns/$id"
+                    params={{ id: campaignId }}
+                    onClick={() => setOpen(null)}
+                    className="rounded-xl border border-rpg/25 bg-secondary px-3 py-2.5 text-sm text-foreground"
+                  >
+                    Lobby de la campagne
+                  </Link>
+                  <Link
+                    to="/profile"
+                    onClick={() => setOpen(null)}
+                    className="rounded-xl border border-rpg/25 bg-secondary px-3 py-2.5 text-sm text-foreground"
+                  >
+                    Mon profil de joueur
+                  </Link>
+                  <Link
+                    to="/home"
+                    onClick={() => setOpen(null)}
+                    className="rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg"
+                  >
+                    Retour au menu principal
+                  </Link>
+                </div>
               )}
             </div>
           </div>

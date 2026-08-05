@@ -88,9 +88,6 @@ export function MusicPlayer({ suggestion, canControl }: { suggestion?: string; c
       {!canControl && (
         <p className="pt-2 text-[11px] text-muted-foreground">Seul le MJ règle l'ambiance sonore.</p>
       )}
-      <p className="pt-2 text-[11px] text-muted-foreground">
-        Connexion Spotify prévue : les pistes seront choisies par le MJ IA selon le lieu et la tension.
-      </p>
     </section>
   );
 }
