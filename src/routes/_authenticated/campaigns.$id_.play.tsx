@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Dices, Loader2, PenLine, Send, User } from "lucide-react";
+import { Loader2, PenLine, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
@@ -219,14 +219,17 @@ function PlayPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col bg-background">
       {/* Barre supérieure */}
       <header className="sticky top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
-        <Link
-          to="/campaigns/$id"
-          params={{ id }}
-          aria-label="Quitter la partie"
-          className="shrink-0 rounded-full border border-rpg/30 bg-card p-2 text-rpg"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        <GameMenus
+          campaignId={id}
+          sheet={mySheet}
+          scenes={scenes}
+          journal={journal}
+          party={party}
+          isGm={Boolean(isGm)}
+          ambiance={ambiance}
+          turns={messages.length}
+          {...(lastScene?.music_query ? { musicSuggestion: lastScene.music_query } : {})}
+        />
         <div className="min-w-0">
           <h1 className="truncate font-display text-base tracking-wide text-foreground sm:text-lg">
             {data?.campaign?.name ?? "Campagne"}
@@ -249,19 +252,10 @@ function PlayPage() {
               </li>
             ))}
           </ul>
-          <Link
-            to="/campaigns/$id/character"
-            params={{ id }}
-            aria-label="Ma fiche"
-            className="shrink-0 rounded-full border border-rpg/30 bg-card p-2 text-rpg"
-          >
-            <User className="h-5 w-5" />
-          </Link>
         </div>
       </header>
 
       <AmbianceBar ambiance={ambiance} />
-      <GameMenus campaignId={id} sheet={mySheet} scenes={scenes} journal={journal} party={party} />
 
       {/* Onglets mobile */}
       <nav className="grid grid-cols-3 gap-1 border-b border-rpg/15 px-4 py-2 lg:hidden">
@@ -291,7 +285,12 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
-          <MusicPlayer canControl={Boolean(isGm)} {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})} />
+          {isGm && (
+            <MusicPlayer
+              canControl
+              {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})}
+            />
+          )}
         </aside>
 
         {/* Zone centrale */}
@@ -366,14 +365,13 @@ function PlayPage() {
         <aside className={`flex flex-col gap-3 ${tab === "journal" ? "" : "hidden"} lg:flex`}>
           <JournalPanel entries={journal} />
           <PartyPanel members={party} />
-          <IllustrationSlot
-            kind="scene"
-            campaignId={id}
-            prompt={lastScene?.image_prompt || lastScene?.scene_title || "fantasy landscape"}
-          />
-          <div className="lg:hidden">
-            <MusicPlayer canControl={Boolean(isGm)} {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})} />
-          </div>
+          {isGm && (
+            <IllustrationSlot
+              kind="scene"
+              campaignId={id}
+              prompt={lastScene?.image_prompt || lastScene?.scene_title || "fantasy landscape"}
+            />
+          )}
         </aside>
       </div>
 
@@ -420,14 +418,6 @@ function PlayPage() {
             placeholder="Que fait votre personnage ?"
           />
           <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              onClick={() => setDice({ formula: "1d20", threshold: 10, reason: "Jet libre" })}
-              aria-label="Lancer les dés"
-              className="rounded-xl border border-rpg/30 bg-card p-3 text-rpg"
-            >
-              <Dices className="h-5 w-5" />
-            </button>
             <button
               type="submit"
               disabled={busy || !intent.trim()}
