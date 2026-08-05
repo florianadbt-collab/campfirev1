@@ -11,9 +11,8 @@ export const Route = createFileRoute("/_authenticated/campaigns/join")({
       { name: "description", content: "Rejoignez une campagne avec un code d'invitation." },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    campaign: typeof search["campaign"] === "string" ? (search["campaign"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { campaign?: string } =>
+    typeof search["campaign"] === "string" ? { campaign: search["campaign"] as string } : {},
   component: JoinCampaignPage,
 });
 
