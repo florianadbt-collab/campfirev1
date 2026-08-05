@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Play, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Play, Check, Trash2, QrCode, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
@@ -68,6 +69,32 @@ function CampaignPage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [joinUrl, setJoinUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setJoinUrl(`${window.location.origin}/campaigns/join?campaign=${id}`);
+    }
+  }, [id]);
+
+  async function shareInvite() {
+    const text = `Rejoignez « ${data.campaign.name} » sur Campfire — code ${data.campaign.invite_code}`;
+    try {
+      if (navigator.share) await navigator.share({ title: "Campfire", text, url: joinUrl });
+      else await navigator.clipboard.writeText(`${text}\n${joinUrl}`);
+    } catch {
+      /* partage annulé */
+    }
+  }
+
+  function downloadQr() {
+    const canvas = document.querySelector<HTMLCanvasElement>("#campfire-qr canvas");
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `campfire-${data.campaign.invite_code}.png`;
+    link.click();
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: u }) => setUserId(u.user?.id ?? null));
@@ -215,6 +242,46 @@ function CampaignPage() {
             {copied ? "Copié" : "Copier"}
           </span>
           </button>
+        )}
+
+        {joinUrl && (
+          <section
+            id="campfire-qr"
+            className="flex flex-col items-center gap-3 rounded-2xl border border-rpg/30 bg-card p-4"
+          >
+            <h2 className="flex items-center gap-2 font-display text-sm uppercase tracking-wider text-rpg">
+              <QrCode className="h-4 w-4" /> QR Code de la campagne
+            </h2>
+            <span className="rounded-xl bg-white p-2">
+              <QRCodeCanvas value={joinUrl} size={148} includeMargin={false} />
+            </span>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Scannez pour rejoindre directement le lobby.
+            </p>
+            <div className="grid w-full grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(joinUrl)}
+                className="rounded-xl border border-rpg/30 bg-secondary px-2 py-2 text-[11px] text-foreground"
+              >
+                Copier
+              </button>
+              <button
+                type="button"
+                onClick={downloadQr}
+                className="rounded-xl border border-rpg/30 bg-secondary px-2 py-2 text-[11px] text-foreground"
+              >
+                Télécharger
+              </button>
+              <button
+                type="button"
+                onClick={shareInvite}
+                className="flex items-center justify-center gap-1 rounded-xl border border-rpg/40 bg-rpg/10 px-2 py-2 text-[11px] text-rpg"
+              >
+                <Share2 className="h-3.5 w-3.5" /> Partager
+              </button>
+            </div>
+          </section>
         )}
 
         <div className="flex flex-col gap-2">
