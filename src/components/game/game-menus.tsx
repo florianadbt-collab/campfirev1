@@ -233,7 +233,6 @@ export function GameMenus({
                   <Link
                     to="/campaigns/$id/character"
                     params={{ id: campaignId }}
-                    search={{ from: "play" }}
                     className="rpg-button text-center"
                     onClick={() => setOpen(null)}
                   >
