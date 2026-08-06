@@ -54,7 +54,10 @@ export function PortraitPicker({
         )}
         {busy && (
           <div className="absolute inset-0 grid place-items-center bg-background/70">
-            <Loader2 className="h-6 w-6 animate-spin text-rpg" />
+            <span className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-rpg" />
+              <span className="text-[11px] text-muted-foreground">Génération du portrait…</span>
+            </span>
           </div>
         )}
         {url && !busy && (
