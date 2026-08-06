@@ -258,7 +258,7 @@ function PlayPage() {
           scenes={scenes}
           journal={journal}
           party={party}
-          isGm={Boolean(isGm)}
+          isGm={gmView}
           ambiance={ambiance}
           turns={messages.length}
           {...(lastScene?.music_query ? { musicSuggestion: lastScene.music_query } : {})}
@@ -328,7 +328,7 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
-          {isGm && (
+          {gmView && (
             <MusicPlayer
               canControl
               {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})}
@@ -338,6 +338,12 @@ function PlayPage() {
 
         {/* Zone centrale */}
         <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
+          <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
+          {gmView && lastScene?.read_aloud && (
+            <p className="rounded-2xl border border-rpg/30 bg-rpg/5 p-3 text-sm italic text-foreground">
+              📖 À lire aux joueurs : {lastScene.read_aloud}
+            </p>
+          )}
           {gameQ.isLoading && (
             <div className="grid place-items-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-rpg" />
@@ -408,10 +414,11 @@ function PlayPage() {
         <aside className={`flex flex-col gap-3 ${tab === "journal" ? "" : "hidden"} lg:flex`}>
           <JournalPanel entries={journal} />
           <PartyPanel members={party} />
-          {isGm && (
+          {gmView && (
             <IllustrationSlot
               kind="scene"
               campaignId={id}
+              auto
               prompt={lastScene?.image_prompt || lastScene?.scene_title || "fantasy landscape"}
             />
           )}
@@ -420,7 +427,17 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
-        {suggestions.length > 0 && (
+        {gmView && turn.requiresMjConfirmation && (
+          <button
+            type="button"
+            onClick={advanceScene}
+            disabled={busy}
+            className="flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg disabled:opacity-50"
+          >
+            <Play className="h-4 w-4 shrink-0" /> Continuer la scène
+          </button>
+        )}
+        {suggestions.length > 0 && canAct && (
           <ul className="flex gap-2 overflow-x-auto pb-1">
             {suggestions.map((s) => (
               <li key={s} className="shrink-0">
@@ -445,6 +462,13 @@ function PlayPage() {
             </li>
           </ul>
         )}
+        {!canAct ? (
+          <p className="rounded-xl border border-rpg/20 bg-secondary px-3 py-3 text-center text-xs text-muted-foreground">
+            {turn.state === "NARRATION"
+              ? "Le récit avance : attendez la suite du MJ."
+              : "Ce n'est pas votre tour — suivez la scène en direct."}
+          </p>
+        ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -471,6 +495,7 @@ function PlayPage() {
             </button>
           </div>
         </form>
+        )}
       </footer>
 
       {dice && (
