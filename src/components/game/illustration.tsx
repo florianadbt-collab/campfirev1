@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { AIService } from "@/lib/ai/ai-service";
 
@@ -18,15 +18,19 @@ export function IllustrationSlot({
   prompt,
   campaignId,
   initialUrl = null,
+  auto = false,
 }: {
   kind: IllustrationKind;
   prompt: string;
   campaignId?: string;
   initialUrl?: string | null;
+  /** Génère automatiquement dès que Gemini fournit un nouveau prompt. */
+  auto?: boolean;
 }) {
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const donePrompt = useRef<string | null>(null);
 
   async function generate() {
     setBusy(true);
@@ -41,6 +45,15 @@ export function IllustrationSlot({
     setBusy(false);
   }
 
+  // Génération automatique, non bloquante : la partie continue pendant ce temps.
+  useEffect(() => {
+    if (!auto || !prompt.trim() || busy) return;
+    if (donePrompt.current === prompt) return;
+    donePrompt.current = prompt;
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, prompt]);
+
   return (
     <figure className="overflow-hidden rounded-2xl border border-rpg/25 bg-card/60">
       <div className="relative grid aspect-video w-full place-items-center bg-secondary">
@@ -51,7 +64,10 @@ export function IllustrationSlot({
         )}
         {busy && (
           <div className="absolute inset-0 grid place-items-center bg-background/70">
-            <Loader2 className="h-6 w-6 animate-spin text-rpg" />
+            <span className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-rpg" />
+              <span className="text-[11px] text-muted-foreground">Illustration en cours…</span>
+            </span>
           </div>
         )}
       </div>
