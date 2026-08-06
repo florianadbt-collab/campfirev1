@@ -276,6 +276,14 @@ async function callGemini(
 
 /* ------------------------------------------------------------- normalisation */
 
+const SCENE_STATES = new Set(["NARRATION", "PLAYER_TURN", "GROUP_CHOICE", "COMBAT", "DIALOGUE"]);
+
+function strList(value: unknown, max = 8): string[] {
+  return Array.isArray(value)
+    ? (value as unknown[]).map((v) => String(v).trim()).filter(Boolean).slice(0, max)
+    : [];
+}
+
 function normalizeScene(value: unknown): SceneResponse {
   const v = (value ?? {}) as Record<string, unknown>;
   const actions = Array.isArray(v["suggested_actions"])
@@ -299,6 +307,9 @@ function normalizeScene(value: unknown): SceneResponse {
           ability: String(dr["ability"] ?? ""),
         }
       : null;
+  const state = String(v["scene_state"] ?? "").toUpperCase();
+  const sceneState = (SCENE_STATES.has(state) ? state : "NARRATION") as SceneResponse["scene_state"];
+  const activePlayers = strList(v["active_players"], 12);
   return {
     scene_title: String(v["scene_title"] ?? "Ouverture"),
     narration: String(v["narration"] ?? ""),
@@ -312,6 +323,25 @@ function normalizeScene(value: unknown): SceneResponse {
     tension: Math.max(0, Math.min(100, Number(v["tension"] ?? 20) || 0)),
     dialogues,
     dice_request: diceRequest,
+    scene_state: sceneState,
+    active_players: activePlayers,
+    initiative: strList(v["initiative"], 12),
+    waiting_for_input:
+      typeof v["waiting_for_input"] === "boolean"
+        ? (v["waiting_for_input"] as boolean)
+        : activePlayers.length > 0,
+    allow_parallel_inputs:
+      typeof v["allow_parallel_inputs"] === "boolean"
+        ? (v["allow_parallel_inputs"] as boolean)
+        : sceneState === "GROUP_CHOICE",
+    requires_mj_confirmation:
+      typeof v["requires_mj_confirmation"] === "boolean"
+        ? (v["requires_mj_confirmation"] as boolean)
+        : activePlayers.length === 0,
+    read_aloud: String(v["read_aloud"] ?? ""),
+    gm_notes: String(v["gm_notes"] ?? ""),
+    gm_secrets: strList(v["gm_secrets"], 5),
+    offscreen_events: strList(v["offscreen_events"], 5),
   };
 }
 
