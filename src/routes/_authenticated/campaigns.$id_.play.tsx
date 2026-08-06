@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, PenLine, Send } from "lucide-react";
+import { Eye, Loader2, PenLine, Play, Send, Theater } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
@@ -17,6 +17,7 @@ import { GameMenus } from "@/components/game/game-menus";
 import { MusicPlayer } from "@/components/game/music-player";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
+import { TurnBanner, canPlayerAct, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
 
@@ -47,6 +48,7 @@ function PlayPage() {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [dice, setDice] = useState<DiceRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [gmMode, setGmMode] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -158,15 +160,27 @@ function PlayPage() {
   );
 
   const isGm = data?.campaign?.owner_id === userId;
+  const gmView = Boolean(isGm) && gmMode;
 
-  async function send(text: string, roll?: DiceOutcome) {
+  const roster = useMemo(
+    () => party.map((p) => ({ id: p.user_id, name: p.name, role: p.role })),
+    [party],
+  );
+  const names = useMemo(() => new Map(party.map((p) => [p.user_id, p.name])), [party]);
+  const turn = useMemo(() => turnStateFrom(lastScene), [lastScene]);
+  const myTurn = canPlayerAct(turn, userId);
+  const canAct = myTurn || gmView;
+
+  async function send(text: string, roll?: DiceOutcome, silent = false) {
     const value = text.trim();
     if (!value || !userId || busy) return;
     setBusy(true);
     setError(null);
     setIntent("");
 
-    const { error: insertError } = await supabase.from("messages").insert({
+    const { error: insertError } = silent
+      ? { error: null }
+      : await supabase.from("messages").insert({
       campaign_id: id,
       user_id: userId,
       role: "player",
@@ -191,8 +205,10 @@ function PlayPage() {
 
     const result = await AIService.playTurn({
       campaignId: id,
+      roster,
       intent: {
         text: value,
+        user_id: userId,
         character: mySheet.name || null,
         ...(roll
           ? {
@@ -217,6 +233,11 @@ function PlayPage() {
     }
     queryClient.invalidateQueries({ queryKey: ["play", id] });
     setBusy(false);
+  }
+
+  /** ▶ Continuer la scène — le MJ laisse simplement la scène évoluer. */
+  function advanceScene() {
+    void send("ADVANCE_SCENE", undefined, true);
   }
 
   const suggestions = Array.isArray(lastScene?.suggested_actions) ? lastScene!.suggested_actions : [];
@@ -251,6 +272,16 @@ function PlayPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {isGm && (
+            <button
+              type="button"
+              onClick={() => setGmMode((m) => !m)}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-rpg/40 bg-card px-2.5 py-1.5 text-[11px] text-rpg"
+            >
+              {gmView ? <Theater className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {gmView ? "Mode MJ" : "Mode personnage"}
+            </button>
+          )}
           <ul className="hidden -space-x-2 sm:flex">
             {party.slice(0, 4).map((m) => (
               <li
