@@ -88,6 +88,7 @@ export function buildPrompt(req: AIRequest): string {
         [
           "Écris la scène d'ouverture de la campagne.",
           `Nom de la campagne : ${seed?.name ?? "Sans nom"}`,
+          `Joueurs de la table (utilise ces identifiants) : ${JSON.stringify(p["roster"] ?? [])}`,
           `Type de campagne : ${seed?.type ?? "Libre"}`,
           `Description de l'univers : ${seed?.universe ?? "Non précisée"}`,
           `Le MJ participe aussi comme joueur : ${seed?.gmPlays ? "oui" : "non"}`,
