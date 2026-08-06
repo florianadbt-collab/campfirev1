@@ -11,7 +11,8 @@ export type TurnState = {
 };
 
 export function turnStateFrom(scene: Partial<SceneResponse> | undefined): TurnState {
-  const state = (scene?.scene_state ?? "NARRATION") as SceneState;
+  // Scènes antérieures au pilotage de tour : tout le monde peut agir.
+  const state = (scene?.scene_state ?? "GROUP_CHOICE") as SceneState;
   const activePlayers = Array.isArray(scene?.active_players) ? scene!.active_players! : [];
   return {
     state,
