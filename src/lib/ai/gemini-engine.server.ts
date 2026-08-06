@@ -43,6 +43,10 @@ const SCENE_JSON_CONTRACT =
   '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
   '"dialogues":[{"speaker":string,"line":string}],' +
   '"dice_request":{"formula":string,"threshold":number,"reason":string,"ability":string}|null,' +
+  '"scene_state":"NARRATION"|"PLAYER_TURN"|"GROUP_CHOICE"|"COMBAT"|"DIALOGUE",' +
+  '"active_players":[string],"initiative":[string],"waiting_for_input":boolean,' +
+  '"allow_parallel_inputs":boolean,"requires_mj_confirmation":boolean,' +
+  '"read_aloud":string,"gm_notes":string,"gm_secrets":[string],"offscreen_events":[string],' +
   '"suggested_actions":[string,string,string]}';
 
 const SCENE_RULES = [
@@ -54,6 +58,21 @@ const SCENE_RULES = [
   "- music_query et image_prompt en anglais.",
   "- suggested_actions : 3 ou 4 actions courtes, concrètes, à la 2e personne.",
   "- dice_request : uniquement si l'action demande un test incertain, sinon null. formula type \"1d20\", threshold entier.",
+  "",
+  "Gestion du tour (obligatoire) :",
+  "- scene_state : PLAYER_TURN (un seul joueur agit), GROUP_CHOICE (tous peuvent répondre),",
+  "  DIALOGUE (échange en cours, seul le joueur concerné répond), COMBAT (ordre d'initiative), NARRATION (personne n'agit).",
+  "- active_players : tableau d'identifiants pris EXACTEMENT dans la liste des joueurs fournie (champ id). Vide si NARRATION.",
+  "- initiative : en COMBAT uniquement, tous les identifiants dans l'ordre d'action. Sinon tableau vide.",
+  "- waiting_for_input : true si tu attends une action d'un joueur.",
+  "- allow_parallel_inputs : true seulement en GROUP_CHOICE.",
+  "- requires_mj_confirmation : true quand la scène peut avancer d'elle-même et que tu attends le feu vert du MJ.",
+  "",
+  "Bloc MJ (jamais montré aux joueurs) :",
+  "- read_aloud : court texte que le MJ peut lire à voix haute aux joueurs.",
+  "- gm_notes : ce que le MJ doit savoir (intentions des PNJ, pièges, rythme).",
+  "- gm_secrets : 0 à 3 secrets non encore révélés.",
+  "- offscreen_events : 0 à 3 événements qui se déroulent hors champ.",
 ].join("\n");
 
 export function buildPrompt(req: AIRequest): string {
@@ -69,6 +88,7 @@ export function buildPrompt(req: AIRequest): string {
         [
           "Écris la scène d'ouverture de la campagne.",
           `Nom de la campagne : ${seed?.name ?? "Sans nom"}`,
+          `Joueurs de la table (utilise ces identifiants) : ${JSON.stringify(p["roster"] ?? [])}`,
           `Type de campagne : ${seed?.type ?? "Libre"}`,
           `Description de l'univers : ${seed?.universe ?? "Non précisée"}`,
           `Le MJ participe aussi comme joueur : ${seed?.gmPlays ? "oui" : "non"}`,
@@ -85,10 +105,17 @@ export function buildPrompt(req: AIRequest): string {
     case "playTurn": {
       const intent = req.context?.playerIntent as Record<string, unknown> | undefined;
       const roll = intent?.["roll"];
+      const roster = (req.payload?.["roster"] as unknown) ?? [];
+      const advance = String(intent?.["text"] ?? "") === "ADVANCE_SCENE";
       return (
         [
-          "Poursuis la partie. Voici ce que fait le joueur :",
+          "Poursuis la partie.",
+          `Joueurs de la table (utilise ces identifiants) : ${JSON.stringify(roster)}`,
+          advance
+            ? "Le MJ humain demande ADVANCE_SCENE : laisse simplement la scène évoluer naturellement, sans forcer d'événement majeur."
+            : "Voici ce que fait le joueur :",
           `Personnage : ${String(intent?.["character"] ?? "Un joueur")}`,
+          `Identifiant du joueur : ${String(intent?.["user_id"] ?? "inconnu")}`,
           `Action : ${String(intent?.["text"] ?? "")}`,
           roll ? `Résultat de dés fourni : ${JSON.stringify(roll)}. Tiens-en compte dans l'issue.` : "",
           "",
@@ -249,6 +276,14 @@ async function callGemini(
 
 /* ------------------------------------------------------------- normalisation */
 
+const SCENE_STATES = new Set(["NARRATION", "PLAYER_TURN", "GROUP_CHOICE", "COMBAT", "DIALOGUE"]);
+
+function strList(value: unknown, max = 8): string[] {
+  return Array.isArray(value)
+    ? (value as unknown[]).map((v) => String(v).trim()).filter(Boolean).slice(0, max)
+    : [];
+}
+
 function normalizeScene(value: unknown): SceneResponse {
   const v = (value ?? {}) as Record<string, unknown>;
   const actions = Array.isArray(v["suggested_actions"])
@@ -272,6 +307,9 @@ function normalizeScene(value: unknown): SceneResponse {
           ability: String(dr["ability"] ?? ""),
         }
       : null;
+  const state = String(v["scene_state"] ?? "").toUpperCase();
+  const sceneState = (SCENE_STATES.has(state) ? state : "NARRATION") as SceneResponse["scene_state"];
+  const activePlayers = strList(v["active_players"], 12);
   return {
     scene_title: String(v["scene_title"] ?? "Ouverture"),
     narration: String(v["narration"] ?? ""),
@@ -285,6 +323,25 @@ function normalizeScene(value: unknown): SceneResponse {
     tension: Math.max(0, Math.min(100, Number(v["tension"] ?? 20) || 0)),
     dialogues,
     dice_request: diceRequest,
+    scene_state: sceneState,
+    active_players: activePlayers,
+    initiative: strList(v["initiative"], 12),
+    waiting_for_input:
+      typeof v["waiting_for_input"] === "boolean"
+        ? (v["waiting_for_input"] as boolean)
+        : activePlayers.length > 0,
+    allow_parallel_inputs:
+      typeof v["allow_parallel_inputs"] === "boolean"
+        ? (v["allow_parallel_inputs"] as boolean)
+        : sceneState === "GROUP_CHOICE",
+    requires_mj_confirmation:
+      typeof v["requires_mj_confirmation"] === "boolean"
+        ? (v["requires_mj_confirmation"] as boolean)
+        : activePlayers.length === 0,
+    read_aloud: String(v["read_aloud"] ?? ""),
+    gm_notes: String(v["gm_notes"] ?? ""),
+    gm_secrets: strList(v["gm_secrets"], 5),
+    offscreen_events: strList(v["offscreen_events"], 5),
   };
 }
 

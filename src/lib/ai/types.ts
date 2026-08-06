@@ -84,6 +84,40 @@ export type SceneResponse = {
     reason: string;
     ability?: string;
   } | null;
+  /** Pilotage du tour — voir SceneTurnControl. */
+  scene_state?: SceneState;
+  active_players?: string[];
+  waiting_for_input?: boolean;
+  allow_parallel_inputs?: boolean;
+  requires_mj_confirmation?: boolean;
+  initiative?: string[];
+  /** Bloc MJ — filtré côté interface pour les joueurs. */
+  read_aloud?: string;
+  gm_notes?: string;
+  gm_secrets?: string[];
+  offscreen_events?: string[];
+}
+
+/** Pilotage du tour de jeu — renvoyé par Gemini à chaque scène. */
+export type SceneState = "NARRATION" | "PLAYER_TURN" | "GROUP_CHOICE" | "COMBAT" | "DIALOGUE";
+
+export interface SceneTurnControl {
+  scene_state: SceneState;
+  /** identifiants (user_id) des joueurs autorisés à agir. */
+  active_players: string[];
+  waiting_for_input: boolean;
+  allow_parallel_inputs: boolean;
+  requires_mj_confirmation: boolean;
+  /** ordre d'initiative (user_id) en COMBAT. */
+  initiative?: string[];
+}
+
+/** Bloc réservé au MJ — jamais affiché aux joueurs. */
+export interface SceneGmBlock {
+  read_aloud: string;
+  gm_notes: string;
+  gm_secrets: string[];
+  offscreen_events: string[];
 }
 
 export interface AIDebugInfo {

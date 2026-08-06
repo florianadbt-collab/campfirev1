@@ -31,8 +31,11 @@ export function GmTools({
   const [summary, setSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
 
   const last = scenes.at(-1);
+  const secrets = last?.gm_secrets ?? [];
+  const offscreen = last?.offscreen_events ?? [];
   const clocks = [
     { label: "Tension dramatique", value: Math.min(100, ambiance.tension) },
     { label: "Menace en approche", value: Math.min(100, turns * 7) },
@@ -73,6 +76,42 @@ export function GmTools({
         </p>
       </PanelCard>
 
+      {last?.read_aloud && (
+        <PanelCard title="📖 À lire aux joueurs">
+          <p className="whitespace-pre-line text-sm italic text-foreground">{last.read_aloud}</p>
+        </PanelCard>
+      )}
+
+      {last?.gm_notes && (
+        <PanelCard title="Notes de simulation">
+          <p className="whitespace-pre-line text-xs text-muted-foreground">{last.gm_notes}</p>
+        </PanelCard>
+      )}
+
+      {secrets.length > 0 && (
+        <PanelCard title="Secrets non révélés">
+          <ul className="flex flex-col gap-1.5">
+            {secrets.map((s, i) => (
+              <li key={i} className="rounded-lg border border-rpg/20 bg-secondary px-2 py-1.5 text-xs text-foreground">
+                {s}
+              </li>
+            ))}
+          </ul>
+        </PanelCard>
+      )}
+
+      {offscreen.length > 0 && (
+        <PanelCard title="Évènements hors champ">
+          <ul className="flex flex-col gap-1.5">
+            {offscreen.map((s, i) => (
+              <li key={i} className="rounded-lg border border-rpg/20 bg-secondary px-2 py-1.5 text-xs text-foreground">
+                {s}
+              </li>
+            ))}
+          </ul>
+        </PanelCard>
+      )}
+
       <PanelCard title="Horloges de menace">
         <ul className="flex flex-col gap-2">
           {clocks.map((c) => (
@@ -93,8 +132,18 @@ export function GmTools({
       <IllustrationSlot
         kind="scene"
         campaignId={campaignId}
+        auto
         prompt={last?.image_prompt || last?.scene_title || "fantasy landscape, cinematic"}
       />
+
+      <PanelCard title="Notes privées du MJ">
+        <textarea
+          className="rpg-input min-h-24 resize-none text-sm"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Vos idées, pistes et rappels — visibles par vous seul."
+        />
+      </PanelCard>
 
       <PanelCard title="Résumé du World State">
         {summary ? (

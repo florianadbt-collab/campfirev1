@@ -33,22 +33,35 @@ export const AIService = {
     run({ task: "createCampaign", context: { campaignSeed: seed, ...o.context }, ...o }),
 
   startCampaign: (
-    args: { campaignId: string; seed: CampaignSeed; characters: CharacterBrief[] },
+    args: {
+      campaignId: string;
+      seed: CampaignSeed;
+      characters: CharacterBrief[];
+      roster?: { id: string; name: string; role: string }[];
+    },
     o: Options = {},
   ) =>
     run<SceneResponse>({
       task: "startCampaign",
       campaignId: args.campaignId,
-      payload: { characters: args.characters },
+      payload: { characters: args.characters, roster: args.roster ?? [] },
       context: { campaignSeed: args.seed, ...o.context },
       persist: true,
       ...o,
     }),
 
-  playTurn: (args: { campaignId: string; intent: import("./types").Json }, o: Options = {}) =>
+  playTurn: (
+    args: {
+      campaignId: string;
+      intent: import("./types").Json;
+      roster?: { id: string; name: string; role: string }[];
+    },
+    o: Options = {},
+  ) =>
     run<SceneResponse>({
       task: "playTurn",
       campaignId: args.campaignId,
+      payload: { roster: args.roster ?? [] },
       context: { playerIntent: args.intent, ...o.context },
       persist: true,
       ...o,

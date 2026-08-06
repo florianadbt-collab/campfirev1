@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, PenLine, Send } from "lucide-react";
+import { Eye, Loader2, PenLine, Play, Send, Theater } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
@@ -17,6 +17,7 @@ import { GameMenus } from "@/components/game/game-menus";
 import { MusicPlayer } from "@/components/game/music-player";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
+import { TurnBanner, canPlayerAct, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
 
@@ -47,6 +48,7 @@ function PlayPage() {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [dice, setDice] = useState<DiceRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [gmMode, setGmMode] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -158,15 +160,27 @@ function PlayPage() {
   );
 
   const isGm = data?.campaign?.owner_id === userId;
+  const gmView = Boolean(isGm) && gmMode;
 
-  async function send(text: string, roll?: DiceOutcome) {
+  const roster = useMemo(
+    () => party.map((p) => ({ id: p.user_id, name: p.name, role: p.role })),
+    [party],
+  );
+  const names = useMemo(() => new Map(party.map((p) => [p.user_id, p.name])), [party]);
+  const turn = useMemo(() => turnStateFrom(lastScene), [lastScene]);
+  const myTurn = canPlayerAct(turn, userId);
+  const canAct = myTurn || gmView;
+
+  async function send(text: string, roll?: DiceOutcome, silent = false) {
     const value = text.trim();
     if (!value || !userId || busy) return;
     setBusy(true);
     setError(null);
     setIntent("");
 
-    const { error: insertError } = await supabase.from("messages").insert({
+    const { error: insertError } = silent
+      ? { error: null }
+      : await supabase.from("messages").insert({
       campaign_id: id,
       user_id: userId,
       role: "player",
@@ -191,8 +205,10 @@ function PlayPage() {
 
     const result = await AIService.playTurn({
       campaignId: id,
+      roster,
       intent: {
         text: value,
+        user_id: userId,
         character: mySheet.name || null,
         ...(roll
           ? {
@@ -219,6 +235,11 @@ function PlayPage() {
     setBusy(false);
   }
 
+  /** ▶ Continuer la scène — le MJ laisse simplement la scène évoluer. */
+  function advanceScene() {
+    void send("ADVANCE_SCENE", undefined, true);
+  }
+
   const suggestions = Array.isArray(lastScene?.suggested_actions) ? lastScene!.suggested_actions : [];
   const ambiance = {
     location: lastScene?.location ?? "",
@@ -237,7 +258,7 @@ function PlayPage() {
           scenes={scenes}
           journal={journal}
           party={party}
-          isGm={Boolean(isGm)}
+          isGm={gmView}
           ambiance={ambiance}
           turns={messages.length}
           {...(lastScene?.music_query ? { musicSuggestion: lastScene.music_query } : {})}
@@ -251,6 +272,16 @@ function PlayPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {isGm && (
+            <button
+              type="button"
+              onClick={() => setGmMode((m) => !m)}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-rpg/40 bg-card px-2.5 py-1.5 text-[11px] text-rpg"
+            >
+              {gmView ? <Theater className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {gmView ? "Mode MJ" : "Mode personnage"}
+            </button>
+          )}
           <ul className="hidden -space-x-2 sm:flex">
             {party.slice(0, 4).map((m) => (
               <li
@@ -297,7 +328,7 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
-          {isGm && (
+          {gmView && (
             <MusicPlayer
               canControl
               {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})}
@@ -307,6 +338,12 @@ function PlayPage() {
 
         {/* Zone centrale */}
         <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
+          <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
+          {gmView && lastScene?.read_aloud && (
+            <p className="rounded-2xl border border-rpg/30 bg-rpg/5 p-3 text-sm italic text-foreground">
+              📖 À lire aux joueurs : {lastScene.read_aloud}
+            </p>
+          )}
           {gameQ.isLoading && (
             <div className="grid place-items-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-rpg" />
@@ -377,10 +414,11 @@ function PlayPage() {
         <aside className={`flex flex-col gap-3 ${tab === "journal" ? "" : "hidden"} lg:flex`}>
           <JournalPanel entries={journal} />
           <PartyPanel members={party} />
-          {isGm && (
+          {gmView && (
             <IllustrationSlot
               kind="scene"
               campaignId={id}
+              auto
               prompt={lastScene?.image_prompt || lastScene?.scene_title || "fantasy landscape"}
             />
           )}
@@ -389,7 +427,17 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
-        {suggestions.length > 0 && (
+        {gmView && turn.requiresMjConfirmation && (
+          <button
+            type="button"
+            onClick={advanceScene}
+            disabled={busy}
+            className="flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg disabled:opacity-50"
+          >
+            <Play className="h-4 w-4 shrink-0" /> Continuer la scène
+          </button>
+        )}
+        {suggestions.length > 0 && canAct && (
           <ul className="flex gap-2 overflow-x-auto pb-1">
             {suggestions.map((s) => (
               <li key={s} className="shrink-0">
@@ -414,6 +462,13 @@ function PlayPage() {
             </li>
           </ul>
         )}
+        {!canAct ? (
+          <p className="rounded-xl border border-rpg/20 bg-secondary px-3 py-3 text-center text-xs text-muted-foreground">
+            {turn.state === "NARRATION"
+              ? "Le récit avance : attendez la suite du MJ."
+              : "Ce n'est pas votre tour — suivez la scène en direct."}
+          </p>
+        ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -440,6 +495,7 @@ function PlayPage() {
             </button>
           </div>
         </form>
+        )}
       </footer>
 
       {dice && (

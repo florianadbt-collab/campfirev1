@@ -152,8 +152,14 @@ function CampaignPage() {
 
     const { data: characters } = await supabase
       .from("characters")
-      .select("name, race, class_profession, level, backstory")
+      .select("user_id, name, race, class_profession, level, backstory")
       .eq("campaign_id", id);
+
+    const roster = (characters ?? []).map((c) => ({
+      id: c.user_id,
+      name: c.name || "Aventurier",
+      role: c.user_id === data.campaign.owner_id ? "gm" : "player",
+    }));
 
     const result = await AIService.startCampaign({
       campaignId: id,
@@ -165,6 +171,7 @@ function CampaignPage() {
         gmPlays: data.campaign.gm_plays,
       },
       characters: characters ?? [],
+      roster,
     });
 
     setAiResult(result);
