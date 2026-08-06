@@ -84,6 +84,18 @@ export type SceneResponse = {
     reason: string;
     ability?: string;
   } | null;
+  /** Pilotage du tour — voir SceneTurnControl. */
+  scene_state?: SceneState;
+  active_players?: string[];
+  waiting_for_input?: boolean;
+  allow_parallel_inputs?: boolean;
+  requires_mj_confirmation?: boolean;
+  initiative?: string[];
+  /** Bloc MJ — filtré côté interface pour les joueurs. */
+  read_aloud?: string;
+  gm_notes?: string;
+  gm_secrets?: string[];
+  offscreen_events?: string[];
 }
 
 /** Pilotage du tour de jeu — renvoyé par Gemini à chaque scène. */
