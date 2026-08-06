@@ -154,14 +154,14 @@ function CharacterPage() {
     setPortraitBusy(false);
   }
 
-  async function generatePortrait() {
+  async function generatePortraitFor(target: CharacterSheet) {
     setPortraitBusy(true);
     setError(null);
     const prompt = [
-      sheet.name,
-      sheet.race,
-      sheet.class_profession,
-      sheet.physical_description,
+      target.name,
+      target.race,
+      target.class_profession,
+      target.physical_description,
       seed?.universe ?? "",
     ]
       .filter(Boolean)
@@ -171,6 +171,11 @@ function CharacterPage() {
     if (url) setSheet((s) => ({ ...s, portrait_url: url }));
     else setError(result.errorMessage ?? "Le portrait n'a pas pu être généré.");
     setPortraitBusy(false);
+  }
+
+  /** Régénération du portrait seul : la fiche n'est jamais modifiée. */
+  function generatePortrait() {
+    void generatePortraitFor(sheet);
   }
 
   async function save() {
@@ -260,6 +265,8 @@ function CharacterPage() {
             setSheet(s);
             setAiResult(r);
             setMethod("manual");
+            // Fiche validée -> portrait illustré généré automatiquement.
+            void generatePortraitFor(s);
           }}
           onError={setError}
         />
