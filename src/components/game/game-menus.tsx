@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -139,6 +140,12 @@ export function GameMenus({
     setOpen(key);
   }
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const portal = (node: React.ReactNode) =>
+    mounted ? createPortal(node, document.body) : null;
+
   return (
     <>
       <button
@@ -152,8 +159,9 @@ export function GameMenus({
       </button>
 
       {/* Panneau latéral */}
-      {drawer && (
-        <div className="fixed inset-0 z-50 flex bg-background" onClick={() => setDrawer(false)}>
+      {drawer &&
+        portal(
+        <div className="fixed inset-0 z-[100] flex bg-background" onClick={() => setDrawer(false)}>
           <nav
             aria-label="Menu de jeu"
             onClick={(e) => e.stopPropagation()}
@@ -194,15 +202,16 @@ export function GameMenus({
               Retour au menu principal
             </Link>
           </nav>
-        </div>
+        </div>,
       )}
 
       {/* Feuille de contenu */}
-      {open && (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end bg-background/80 backdrop-blur">
-          <div className="max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-rpg/30 bg-card p-4">
-            <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
-              <h2 className="truncate font-display text-lg tracking-wide text-foreground">
+      {open &&
+        portal(
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+          <div className="flex h-full flex-col overflow-y-auto border-t border-rpg/30 bg-card p-4">
+            <header className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-rpg/20 bg-card pb-3">
+              <h2 className="truncate font-display text-xl tracking-wide text-foreground">
                 {ENTRIES.find((m) => m.key === open)?.label}
               </h2>
               <button
@@ -365,7 +374,7 @@ export function GameMenus({
               )}
             </div>
           </div>
-        </div>
+        </div>,
       )}
     </>
   );
