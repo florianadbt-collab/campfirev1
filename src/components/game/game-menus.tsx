@@ -374,7 +374,7 @@ export function GameMenus({
               )}
             </div>
           </div>
-        </div>
+        </div>,
       )}
     </>
   );
