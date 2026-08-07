@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { Dices, Hand, X } from "lucide-react";
-import { rollFormula, type DiceRoll } from "@/lib/game/dice";
+import { parseFormula, rollFormula, type DiceRoll } from "@/lib/game/dice";
 
 export type DiceRequest = { formula: string; threshold: number; reason: string; ability?: string };
+
+/** « (Dextérité, +2) », « (Force, -1) » ou « (Sagesse, aucun modificateur) ». */
+export function abilityModifierLabel(request: { formula: string; ability?: string }): string {
+  const bonus = parseFormula(request.formula).bonus;
+  const mod = bonus > 0 ? `+${bonus}` : bonus < 0 ? String(bonus) : "aucun modificateur";
+  const ability = request.ability?.trim();
+  return ability ? `(${ability}, ${mod})` : `(${mod})`;
+}
 
 export type DiceOutcome = DiceRoll & {
   threshold: number;
@@ -80,8 +88,7 @@ export function DiceRollerDialog({
           <div className="min-w-0">
             <h2 className="font-display text-lg tracking-wide text-foreground">Test requis</h2>
             <p className="text-xs text-muted-foreground">
-              {request.reason} · {request.formula} · seuil {request.threshold}
-              {request.ability ? ` · ${request.ability}` : ""}
+              {request.reason} · {request.formula} {abilityModifierLabel(request)} · seuil {request.threshold}
             </p>
           </div>
           <button
@@ -124,7 +131,7 @@ export function DiceRollerDialog({
         {mode === "manual" && (
           <div className="flex flex-col gap-3">
             <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="dice-manual">
-              Quel résultat avez-vous obtenu ? ({request.formula})
+              Quel résultat avez-vous obtenu ? {request.formula} {abilityModifierLabel(request)}
             </label>
             <input
               id="dice-manual"
@@ -154,7 +161,10 @@ export function DiceRollerDialog({
               <Row label="Résultat brut" value={outcome.dice.join(" + ")} />
               <Row
                 label="Modificateurs"
-                value={outcome.bonus >= 0 ? `+${outcome.bonus}` : String(outcome.bonus)}
+                value={
+                  (outcome.bonus > 0 ? `+${outcome.bonus}` : outcome.bonus < 0 ? String(outcome.bonus) : "aucun") +
+                  (request.ability ? ` · ${request.ability}` : "")
+                }
               />
               <Row label="Total" value={String(outcome.total)} />
               <Row label="Difficulté" value={String(outcome.threshold)} />
