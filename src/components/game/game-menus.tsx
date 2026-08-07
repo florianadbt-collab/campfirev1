@@ -153,40 +153,42 @@ export function GameMenus({
 
       {/* Panneau latéral */}
       {drawer && (
-        <div className="fixed inset-0 z-50 flex bg-background/80 backdrop-blur" onClick={() => setDrawer(false)}>
+        <div className="fixed inset-0 z-50 flex bg-background" onClick={() => setDrawer(false)}>
           <nav
             aria-label="Menu de jeu"
             onClick={(e) => e.stopPropagation()}
-            className="flex h-full w-[82%] max-w-xs flex-col gap-1 overflow-y-auto border-r border-rpg/25 bg-card p-4"
+            className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-card p-5 pb-[env(safe-area-inset-bottom)]"
           >
-            <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
-              <h2 className="truncate font-display text-lg tracking-wide text-foreground">Campfire</h2>
+            <header className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-rpg/20 bg-card pb-4">
+              <h2 className="truncate font-display text-2xl tracking-wide text-foreground">Campfire</h2>
               <button
                 type="button"
                 onClick={() => setDrawer(false)}
                 aria-label="Fermer le menu"
-                className="shrink-0 rounded-full border border-rpg/30 p-1.5 text-rpg"
+                className="shrink-0 rounded-full border border-rpg/30 p-2.5 text-rpg"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </header>
 
+            <div className="grid grid-cols-2 gap-3 pt-4">
             {entries.map((e) => (
               <button
                 key={e.key}
                 type="button"
                 onClick={() => pick(e.key)}
-                className="flex items-center gap-3 rounded-xl border border-rpg/20 bg-secondary px-3 py-2.5 text-left text-sm text-foreground"
+                className="flex min-h-24 flex-col items-start justify-between gap-2 rounded-2xl border border-rpg/20 bg-secondary p-3 text-left text-sm text-foreground active:scale-[0.98]"
               >
-                <e.icon className="h-4 w-4 shrink-0 text-rpg" />
-                <span className="min-w-0 truncate">{e.label}</span>
+                <e.icon className="h-6 w-6 shrink-0 text-rpg" />
+                <span className="min-w-0 leading-tight">{e.label}</span>
               </button>
             ))}
+            </div>
 
             <Link
               to="/home"
               onClick={() => setDrawer(false)}
-              className="mt-3 flex items-center gap-3 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg"
+              className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-rpg/40 bg-rpg/10 px-3 py-4 text-sm text-rpg"
             >
               <Home className="h-4 w-4 shrink-0" />
               Retour au menu principal
