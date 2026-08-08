@@ -586,13 +586,7 @@ function PlayPage() {
             </li>
           </ul>
         )}
-        {!canAct ? (
-          <p className="rounded-xl border border-rpg/20 bg-secondary px-3 py-3 text-center text-xs text-muted-foreground">
-            {turn.state === "NARRATION"
-              ? "Le récit avance : attendez la suite du MJ."
-              : "Ce n'est pas votre tour — suivez la scène en direct."}
-          </p>
-        ) : (
+        {canAct && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
