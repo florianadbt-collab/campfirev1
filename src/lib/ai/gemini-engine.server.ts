@@ -255,7 +255,7 @@ async function callGemini(
   task: AITask,
   content: unknown = prompt,
 ): Promise<{ value: unknown; debug: AIDebugInfo }> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   const startedAt = Date.now();
   if (!apiKey) {
     const err: EngineError = new Error("Service IA non configuré côté serveur.");
@@ -263,20 +263,17 @@ async function callGemini(
     throw err;
   }
 
-  const response = await fetch(GATEWAY_URL, {
+  const response = await fetch(geminiUrl(MODEL, apiKey), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content },
-      ],
-      response_format: { type: "json_object" },
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts: toGeminiParts(content) }],
+      generationConfig: { responseMimeType: "application/json" },
     }),
   });
 
-  const bodyText = await response.text();
+  const bodyText = scrub(await response.text(), apiKey);
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
@@ -284,18 +281,26 @@ async function callGemini(
     const err: EngineError = new Error(
       response.status === 429
         ? "Le MJ IA est momentanément saturé. Réessayez dans quelques instants."
-        : response.status === 402
-          ? "Crédits IA épuisés pour cet espace de travail."
+        : response.status === 401 || response.status === 403
+          ? "Clé Gemini invalide ou sans accès à ce modèle."
           : `Service IA indisponible (${response.status}).`,
     );
     err.code =
-      response.status === 429 ? "ai_rate_limited" : response.status === 402 ? "ai_no_credits" : "ai_unavailable";
+      response.status === 429
+        ? "ai_rate_limited"
+        : response.status === 401 || response.status === 403
+          ? "ai_unauthorized"
+          : "ai_unavailable";
     err.debug = { task, model: MODEL, prompt, raw: bodyText, durationMs, error: `HTTP ${response.status}` };
     throw err;
   }
 
-  const json = JSON.parse(bodyText) as { choices?: { message?: { content?: string } }[] };
-  const raw = json.choices?.[0]?.message?.content ?? "";
+  const json = JSON.parse(bodyText) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const raw = (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
+    .join("");
   const debug: AIDebugInfo = { task, model: MODEL, prompt, raw, durationMs };
 
   try {
