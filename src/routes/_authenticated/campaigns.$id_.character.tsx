@@ -482,11 +482,13 @@ function ImportPanel({
 function AiPanel({
   campaignId,
   seed,
+  generatePortraitFor,
   onResult,
   onError,
 }: {
   campaignId: string;
   seed?: CampaignSeed;
+  generatePortraitFor: (sheet: CharacterSheet) => Promise<string | null>;
   onResult: (sheet: CharacterSheet, result: AIResult) => void;
   onError: (msg: string | null) => void;
 }) {
@@ -501,9 +503,16 @@ function AiPanel({
       description: text,
       ...(seed ? { seed } : {}),
     });
-    setBusy(false);
-    if (result.ok && result.data) onResult(sheetFromAI(result.data), result);
-    else onError(result.errorMessage ?? "La génération a échoué.");
+    if (result.ok && result.data) {
+      const s = sheetFromAI(result.data);
+      const url = await generatePortraitFor(s);
+      if (url) s.portrait_url = url;
+      setBusy(false);
+      onResult(s, result);
+    } else {
+      setBusy(false);
+      onError(result.errorMessage ?? "La génération a échoué.");
+    }
   }
 
   return (
