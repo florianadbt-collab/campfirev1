@@ -662,6 +662,24 @@ function SheetEditor({
           : "Tous les champs restent modifiables tant que la campagne n'a pas commencé."}
       </p>
 
+      {canSurprise && (
+        <button
+          type="button"
+          onClick={onSurprise}
+          disabled={busy}
+          className="rpg-button-secondary py-3 disabled:opacity-50"
+        >
+          {busy ? (
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-rpg" />
+          ) : (
+            <Sparkles className="h-5 w-5 shrink-0 text-rpg" />
+          )}
+          <span className="font-display tracking-wide">
+            {busy ? "Le MJ imagine…" : "Surprends-moi à nouveau"}
+          </span>
+        </button>
+      )}
+
       <button type="button" onClick={onSave} disabled={busy} className="rpg-button py-4 disabled:opacity-50">
         {busy ? (
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-rpg" />
