@@ -154,7 +154,7 @@ function CharacterPage() {
     setPortraitBusy(false);
   }
 
-  async function generatePortraitFor(target: CharacterSheet) {
+  async function generatePortraitFor(target: CharacterSheet): Promise<string | null> {
     setPortraitBusy(true);
     setError(null);
     const prompt = [
@@ -171,6 +171,7 @@ function CharacterPage() {
     if (url) setSheet((s) => ({ ...s, portrait_url: url }));
     else setError(result.errorMessage ?? "Le portrait n'a pas pu être généré.");
     setPortraitBusy(false);
+    return url;
   }
 
   /** Régénération du portrait seul : la fiche n'est jamais modifiée. */
