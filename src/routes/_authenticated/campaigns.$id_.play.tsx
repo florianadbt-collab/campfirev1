@@ -452,7 +452,6 @@ function PlayPage() {
 
         {/* Zone centrale */}
         <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
-          <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
           {gmView && lastScene?.read_aloud && (
             <p className="rounded-2xl border border-rpg/30 bg-rpg/5 p-3 text-sm italic text-foreground">
               📖 À lire aux joueurs : {lastScene.read_aloud}
