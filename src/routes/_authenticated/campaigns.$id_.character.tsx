@@ -284,12 +284,11 @@ function CharacterPage() {
         <AiPanel
           campaignId={id}
           seed={seed}
+          generatePortraitFor={generatePortraitFor}
           onResult={(s, r) => {
             setSheet(s);
             setAiResult(r);
             setMethod("manual");
-            // Fiche validée -> portrait illustré généré automatiquement.
-            void generatePortraitFor(s);
           }}
           onError={setError}
         />
