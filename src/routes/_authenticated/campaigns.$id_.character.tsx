@@ -210,7 +210,14 @@ function CharacterPage() {
     }
     setBusy(true);
     setError(null);
-    const row = { ...sheetToRow(sheet), campaign_id: id, user_id: userId, is_ready: true };
+
+    let finalSheet = sheet;
+    if (!finalSheet.portrait_url) {
+      const url = await generatePortraitFor(finalSheet);
+      if (url) finalSheet = { ...finalSheet, portrait_url: url };
+    }
+
+    const row = { ...sheetToRow(finalSheet), campaign_id: id, user_id: userId, is_ready: true };
     const { error: err } = loadedId
       ? await supabase.from("characters").update(row).eq("id", loadedId)
       : await supabase.from("characters").insert(row);
