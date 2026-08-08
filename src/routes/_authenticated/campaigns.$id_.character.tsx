@@ -301,6 +301,7 @@ function CharacterPage() {
           onPortrait={handlePortrait}
           portraitBusy={portraitBusy}
           onGeneratePortrait={generatePortrait}
+          onSurprise={surprise}
           locked={locked}
           busy={busy}
           saved={saved}
