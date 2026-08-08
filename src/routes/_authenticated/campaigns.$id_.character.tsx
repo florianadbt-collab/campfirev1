@@ -556,6 +556,7 @@ function SheetEditor({
   portraitBusy,
   onGeneratePortrait,
   onSurprise,
+  canSurprise,
   locked,
   busy,
   saved,
@@ -567,6 +568,7 @@ function SheetEditor({
   portraitBusy: boolean;
   onGeneratePortrait: () => void;
   onSurprise: () => void;
+  canSurprise: boolean;
   locked: boolean;
   busy: boolean;
   saved: boolean;
