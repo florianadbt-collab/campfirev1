@@ -33,6 +33,42 @@ export function canPlayerAct(turn: TurnState, userId: string | null): boolean {
   return turn.activePlayers.includes(userId);
 }
 
+/**
+ * Tour par tour strict : un seul joueur agit à la fois.
+ * L'ordre est déterministe (même résultat sur tous les appareils) : il dépend
+ * uniquement de l'ordre des joueurs et du nombre d'actions déjà jouées.
+ */
+export function sequentialTurn(
+  base: TurnState,
+  order: string[],
+  actionsPlayed: number,
+): TurnState {
+  if (order.length === 0) return base;
+  if (base.state === "NARRATION") {
+    return { ...base, activePlayers: [], allowParallel: false, waitingForInput: false };
+  }
+  // En combat, on respecte l'ordre d'initiative donné par le MJ IA s'il est valide.
+  const ring =
+    base.state === "COMBAT" && base.initiative.filter((x) => order.includes(x)).length > 1
+      ? base.initiative.filter((x) => order.includes(x))
+      : order;
+  const current = ring[((actionsPlayed % ring.length) + ring.length) % ring.length]!;
+  return {
+    ...base,
+    state: base.state === "GROUP_CHOICE" ? "PLAYER_TURN" : base.state,
+    activePlayers: [current],
+    allowParallel: false,
+    waitingForInput: true,
+    requiresMjConfirmation: false,
+    initiative: ring,
+  };
+}
+
+/** Joueur dont c'est le tour, s'il y en a un. */
+export function currentPlayer(turn: TurnState): string | null {
+  return turn.activePlayers[0] ?? null;
+}
+
 const ICONS: Record<SceneState, typeof Users> = {
   NARRATION: Play,
   PLAYER_TURN: Hourglass,
@@ -59,19 +95,16 @@ export function TurnBanner({
     ? "🟢 C'est à vous de jouer."
     : turn.state === "NARRATION"
       ? "Le récit avance… personne n'agit pour l'instant."
-      : turn.state === "GROUP_CHOICE"
-        ? "Choix de groupe : tout le monde peut répondre."
-        : turn.state === "COMBAT"
-          ? `Combat — ordre : ${
-              (turn.initiative.length ? turn.initiative : turn.activePlayers)
-                .map((id) => names.get(id) ?? "?")
-                .join(" → ") || "à établir"
-            }`
-          : activeNames.length
-            ? `⏳ ${activeNames.join(", ")} réfléchi${activeNames.length > 1 ? "ssent" : "t"}…`
-            : "⏳ En attente du Maître du Jeu…";
+      : activeNames.length
+        ? `⏳ Au tour de ${activeNames.join(", ")}…`
+        : "⏳ En attente du Maître du Jeu…";
+
+  const order = (turn.initiative.length ? turn.initiative : turn.activePlayers)
+    .map((id) => names.get(id) ?? "?")
+    .join(" → ");
 
   return (
+    <div className="flex flex-col gap-1">
     <p
       className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs ${
         mine
@@ -82,5 +115,9 @@ export function TurnBanner({
       <Icon className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1">{message}</span>
     </p>
+      {turn.initiative.length > 1 && (
+        <p className="truncate px-1 text-[11px] text-muted-foreground">Ordre du tour : {order}</p>
+      )}
+    </div>
   );
 }

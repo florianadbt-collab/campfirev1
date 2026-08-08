@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Loader2, PenLine, Play, Send, Theater } from "lucide-react";
+import { Eye, Loader2, PenLine, Play, RefreshCw, RotateCcw, Send, Theater } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
@@ -17,7 +17,7 @@ import { GameMenus } from "@/components/game/game-menus";
 import { MusicPlayer } from "@/components/game/music-player";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
-import { TurnBanner, canPlayerAct, turnStateFrom } from "@/components/game/turn-banner";
+import { TurnBanner, canPlayerAct, sequentialTurn, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
 
@@ -50,6 +50,7 @@ function PlayPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [gmMode, setGmMode] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -95,9 +96,36 @@ function PlayPage() {
         { event: "*", schema: "public", table: "characters", filter: `campaign_id=eq.${id}` },
         () => queryClient.invalidateQueries({ queryKey: ["play", id] }),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaign_players", filter: `campaign_id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["play", id] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaigns", filter: `id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["play", id] }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
+
+  /** Filet de sécurité : on resynchronise dès que l'écran redevient actif. */
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        queryClient.invalidateQueries({ queryKey: ["play", id] });
+      }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 15000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
     };
   }, [id, queryClient]);
 
@@ -167,9 +195,86 @@ function PlayPage() {
     [party],
   );
   const names = useMemo(() => new Map(party.map((p) => [p.user_id, p.name])), [party]);
-  const turn = useMemo(() => turnStateFrom(lastScene), [lastScene]);
+
+  /** Ordre de jeu stable : mêmes joueurs, même ordre, sur tous les appareils. */
+  const turnOrder = useMemo(() => {
+    const owner = data?.campaign?.owner_id;
+    const gmPlays = data?.campaign?.gm_plays ?? false;
+    const withSheet = new Set((data?.characters ?? []).map((c) => c.user_id));
+    return party
+      .filter((p) => withSheet.has(p.user_id))
+      .filter((p) => gmPlays || p.user_id !== owner)
+      .map((p) => p.user_id)
+      .sort();
+  }, [party, data?.campaign?.owner_id, data?.campaign?.gm_plays, data?.characters]);
+
+  const actionsPlayed = useMemo(
+    () => messages.filter((m) => m.role === "player").length,
+    [messages],
+  );
+
+  const turn = useMemo(
+    () => sequentialTurn(turnStateFrom(lastScene), turnOrder, actionsPlayed),
+    [lastScene, turnOrder, actionsPlayed],
+  );
   const myTurn = canPlayerAct(turn, userId);
   const canAct = myTurn || gmView;
+
+  /** Lance (ou relance) la scène d'introduction. */
+  async function startIntro() {
+    const campaign = data?.campaign;
+    if (!campaign || busy) return;
+    setBusy(true);
+    setError(null);
+    const characters = (data?.characters ?? []).map((c) => ({
+      name: c.name || "Aventurier",
+      race: c.race,
+      class_profession: c.class_profession,
+      level: c.level,
+      backstory: c.backstory,
+    }));
+    const result = await AIService.startCampaign({
+      campaignId: id,
+      seed: {
+        id,
+        name: campaign.name,
+        type: campaign.genre,
+        universe: campaign.description,
+        gmPlays: campaign.gm_plays,
+      },
+      characters,
+      roster,
+    });
+    setAiResult(result);
+    if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+    else await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["play", id] });
+    setBusy(false);
+  }
+
+  /** Démarrage automatique : le MJ n'a rien à cliquer. */
+  useEffect(() => {
+    if (startedRef.current) return;
+    if (!data?.campaign || !userId) return;
+    if (data.campaign.owner_id !== userId) return;
+    if (messages.length > 0) return;
+    startedRef.current = true;
+    void startIntro();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.campaign, userId, messages.length]);
+
+  /** Recommencer la campagne depuis zéro — décision du MJ. */
+  async function restartCampaign() {
+    if (!window.confirm("Effacer tout le récit et recommencer la campagne depuis le début ?")) return;
+    setBusy(true);
+    await supabase.from("messages").delete().eq("campaign_id", id);
+    await supabase.from("campaign_memory").delete().eq("campaign_id", id);
+    await queryClient.invalidateQueries({ queryKey: ["play", id] });
+    setAiResult(null);
+    setBusy(false);
+    startedRef.current = true;
+    void startIntro();
+  }
 
   async function send(text: string, roll?: DiceOutcome, silent = false) {
     const value = text.trim();
@@ -272,6 +377,15 @@ function PlayPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["play", id] })}
+            aria-label="Recharger la partie"
+            title="Recharger la partie"
+            className="shrink-0 rounded-full border border-rpg/30 bg-card p-2 text-rpg"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${gameQ.isFetching ? "animate-spin" : ""}`} />
+          </button>
           {isGm && (
             <button
               type="button"
@@ -427,15 +541,25 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
-        {gmView && turn.requiresMjConfirmation && (
-          <button
-            type="button"
-            onClick={advanceScene}
-            disabled={busy}
-            className="flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg disabled:opacity-50"
-          >
-            <Play className="h-4 w-4 shrink-0" /> Continuer la scène
-          </button>
+        {gmView && (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={advanceScene}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-2.5 text-sm text-rpg disabled:opacity-50"
+            >
+              <Play className="h-4 w-4 shrink-0" /> Continuer la scène
+            </button>
+            <button
+              type="button"
+              onClick={restartCampaign}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive disabled:opacity-50"
+            >
+              <RotateCcw className="h-4 w-4 shrink-0" /> Recommencer
+            </button>
+          </div>
         )}
         {suggestions.length > 0 && canAct && (
           <ul className="flex gap-2 overflow-x-auto pb-1">
