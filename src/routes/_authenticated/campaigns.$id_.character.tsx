@@ -302,6 +302,7 @@ function CharacterPage() {
           portraitBusy={portraitBusy}
           onGeneratePortrait={generatePortrait}
           onSurprise={surprise}
+          canSurprise={!loadedId && !saved}
           locked={locked}
           busy={busy}
           saved={saved}
