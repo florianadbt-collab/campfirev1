@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Loader2, PenLine, RefreshCw, RotateCcw, Send, Theater } from "lucide-react";
+import { Eye, Loader2, PenLine, Play, RefreshCw, RotateCcw, Send, Theater } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AIService } from "@/lib/ai/ai-service";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
