@@ -5,9 +5,40 @@
 import type { AIDebugInfo, AIRequest, AIResult, AITask, Json, SceneResponse } from "./types";
 import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.6-flash";
-const IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+/** API Gemini Developer (Google AI Studio) — clé du projet du propriétaire. */
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL = "gemini-flash-latest";
+const IMAGE_MODEL = "gemini-2.5-flash-image";
+
+type GeminiPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+/** Transforme le contenu interne (texte ou parts OpenAI-like) en parts Gemini. */
+function toGeminiParts(content: unknown): GeminiPart[] {
+  if (typeof content === "string") return [{ text: content }];
+  if (!Array.isArray(content)) return [{ text: String(content ?? "") }];
+  const parts: GeminiPart[] = [];
+  for (const item of content as Record<string, unknown>[]) {
+    if (item?.["type"] === "text") {
+      parts.push({ text: String(item["text"] ?? "") });
+      continue;
+    }
+    const url = ((item?.["image_url"] as Record<string, unknown>)?.["url"] ?? "") as string;
+    const match = /^data:([^;]+);base64,(.+)$/.exec(url);
+    if (match) parts.push({ inline_data: { mime_type: match[1]!, data: match[2]! } });
+  }
+  return parts.length ? parts : [{ text: "" }];
+}
+
+function geminiUrl(model: string, apiKey: string): string {
+  return `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+}
+
+/** Ne jamais laisser fuiter la clé dans les logs ou les messages d'erreur. */
+function scrub(text: string, apiKey: string): string {
+  return apiKey ? text.split(apiKey).join("***") : text;
+}
 
 /* ------------------------------------------------------------------ prompts */
 
