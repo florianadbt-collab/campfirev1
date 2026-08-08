@@ -390,25 +390,30 @@ function normalizeScene(value: unknown): SceneResponse {
 const IMAGE_TASKS = new Set<AITask>(["generatePortrait", "generateSceneImage"]);
 
 async function generateImage(prompt: string): Promise<string | null> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) return null;
-  const response = await fetch(GATEWAY_URL, {
+  const response = await fetch(geminiUrl(IMAGE_MODEL, apiKey), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: IMAGE_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image", "text"],
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"] },
     }),
   });
   if (!response.ok) {
-    console.error(`[gemini-engine] image failed [${response.status}]: ${await response.text()}`);
+    console.error(
+      `[gemini-engine] image failed [${response.status}]: ${scrub(await response.text(), apiKey)}`,
+    );
     return null;
   }
   const json = (await response.json()) as {
-    choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+    candidates?: {
+      content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] };
+    }[];
   };
-  return json.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? null;
+  const inline = (json.candidates?.[0]?.content?.parts ?? []).find((p) => p.inlineData?.data)
+    ?.inlineData;
+  return inline?.data ? `data:${inline.mimeType ?? "image/png"};base64,${inline.data}` : null;
 }
 
 /** Ambiances sonores libres de droits — remplacées par Spotify en V2. */
