@@ -5,9 +5,40 @@
 import type { AIDebugInfo, AIRequest, AIResult, AITask, Json, SceneResponse } from "./types";
 import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.6-flash";
-const IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+/** API Gemini Developer (Google AI Studio) — clé du projet du propriétaire. */
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL = "gemini-flash-latest";
+const IMAGE_MODEL = "gemini-2.5-flash-image";
+
+type GeminiPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+/** Transforme le contenu interne (texte ou parts OpenAI-like) en parts Gemini. */
+function toGeminiParts(content: unknown): GeminiPart[] {
+  if (typeof content === "string") return [{ text: content }];
+  if (!Array.isArray(content)) return [{ text: String(content ?? "") }];
+  const parts: GeminiPart[] = [];
+  for (const item of content as Record<string, unknown>[]) {
+    if (item?.["type"] === "text") {
+      parts.push({ text: String(item["text"] ?? "") });
+      continue;
+    }
+    const url = ((item?.["image_url"] as Record<string, unknown>)?.["url"] ?? "") as string;
+    const match = /^data:([^;]+);base64,(.+)$/.exec(url);
+    if (match) parts.push({ inline_data: { mime_type: match[1]!, data: match[2]! } });
+  }
+  return parts.length ? parts : [{ text: "" }];
+}
+
+function geminiUrl(model: string, apiKey: string): string {
+  return `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+}
+
+/** Ne jamais laisser fuiter la clé dans les logs ou les messages d'erreur. */
+function scrub(text: string, apiKey: string): string {
+  return apiKey ? text.split(apiKey).join("***") : text;
+}
 
 /* ------------------------------------------------------------------ prompts */
 
@@ -224,7 +255,7 @@ async function callGemini(
   task: AITask,
   content: unknown = prompt,
 ): Promise<{ value: unknown; debug: AIDebugInfo }> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   const startedAt = Date.now();
   if (!apiKey) {
     const err: EngineError = new Error("Service IA non configuré côté serveur.");
@@ -232,20 +263,17 @@ async function callGemini(
     throw err;
   }
 
-  const response = await fetch(GATEWAY_URL, {
+  const response = await fetch(geminiUrl(MODEL, apiKey), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content },
-      ],
-      response_format: { type: "json_object" },
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts: toGeminiParts(content) }],
+      generationConfig: { responseMimeType: "application/json" },
     }),
   });
 
-  const bodyText = await response.text();
+  const bodyText = scrub(await response.text(), apiKey);
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
@@ -253,18 +281,26 @@ async function callGemini(
     const err: EngineError = new Error(
       response.status === 429
         ? "Le MJ IA est momentanément saturé. Réessayez dans quelques instants."
-        : response.status === 402
-          ? "Crédits IA épuisés pour cet espace de travail."
+        : response.status === 401 || response.status === 403
+          ? "Clé Gemini invalide ou sans accès à ce modèle."
           : `Service IA indisponible (${response.status}).`,
     );
     err.code =
-      response.status === 429 ? "ai_rate_limited" : response.status === 402 ? "ai_no_credits" : "ai_unavailable";
+      response.status === 429
+        ? "ai_rate_limited"
+        : response.status === 401 || response.status === 403
+          ? "ai_unauthorized"
+          : "ai_unavailable";
     err.debug = { task, model: MODEL, prompt, raw: bodyText, durationMs, error: `HTTP ${response.status}` };
     throw err;
   }
 
-  const json = JSON.parse(bodyText) as { choices?: { message?: { content?: string } }[] };
-  const raw = json.choices?.[0]?.message?.content ?? "";
+  const json = JSON.parse(bodyText) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const raw = (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
+    .join("");
   const debug: AIDebugInfo = { task, model: MODEL, prompt, raw, durationMs };
 
   try {
@@ -354,25 +390,30 @@ function normalizeScene(value: unknown): SceneResponse {
 const IMAGE_TASKS = new Set<AITask>(["generatePortrait", "generateSceneImage"]);
 
 async function generateImage(prompt: string): Promise<string | null> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) return null;
-  const response = await fetch(GATEWAY_URL, {
+  const response = await fetch(geminiUrl(IMAGE_MODEL, apiKey), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: IMAGE_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image", "text"],
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"] },
     }),
   });
   if (!response.ok) {
-    console.error(`[gemini-engine] image failed [${response.status}]: ${await response.text()}`);
+    console.error(
+      `[gemini-engine] image failed [${response.status}]: ${scrub(await response.text(), apiKey)}`,
+    );
     return null;
   }
   const json = (await response.json()) as {
-    choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+    candidates?: {
+      content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] };
+    }[];
   };
-  return json.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? null;
+  const inline = (json.candidates?.[0]?.content?.parts ?? []).find((p) => p.inlineData?.data)
+    ?.inlineData;
+  return inline?.data ? `data:${inline.mimeType ?? "image/png"};base64,${inline.data}` : null;
 }
 
 /** Ambiances sonores libres de droits — remplacées par Spotify en V2. */
