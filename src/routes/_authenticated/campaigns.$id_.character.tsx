@@ -154,7 +154,7 @@ function CharacterPage() {
     setPortraitBusy(false);
   }
 
-  async function generatePortraitFor(target: CharacterSheet) {
+  async function generatePortraitFor(target: CharacterSheet): Promise<string | null> {
     setPortraitBusy(true);
     setError(null);
     const prompt = [
@@ -171,6 +171,7 @@ function CharacterPage() {
     if (url) setSheet((s) => ({ ...s, portrait_url: url }));
     else setError(result.errorMessage ?? "Le portrait n'a pas pu être généré.");
     setPortraitBusy(false);
+    return url;
   }
 
   /** Régénération du portrait seul : la fiche n'est jamais modifiée. */
@@ -188,15 +189,16 @@ function CharacterPage() {
       description: "",
       ...(seed ? { seed } : {}),
     });
-    setBusy(false);
     if (result.ok && result.data) {
       const newSheet = sheetFromAI(result.data);
+      const url = await generatePortraitFor(newSheet);
+      if (url) newSheet.portrait_url = url;
       setSheet(newSheet);
       setAiResult(result);
-      void generatePortraitFor(newSheet);
     } else {
       setError(result.errorMessage ?? "La génération a échoué.");
     }
+    setBusy(false);
   }
 
 
@@ -208,7 +210,14 @@ function CharacterPage() {
     }
     setBusy(true);
     setError(null);
-    const row = { ...sheetToRow(sheet), campaign_id: id, user_id: userId, is_ready: true };
+
+    let finalSheet = sheet;
+    if (!finalSheet.portrait_url) {
+      const url = await generatePortraitFor(finalSheet);
+      if (url) finalSheet = { ...finalSheet, portrait_url: url };
+    }
+
+    const row = { ...sheetToRow(finalSheet), campaign_id: id, user_id: userId, is_ready: true };
     const { error: err } = loadedId
       ? await supabase.from("characters").update(row).eq("id", loadedId)
       : await supabase.from("characters").insert(row);
@@ -283,12 +292,11 @@ function CharacterPage() {
         <AiPanel
           campaignId={id}
           seed={seed}
+          generatePortraitFor={generatePortraitFor}
           onResult={(s, r) => {
             setSheet(s);
             setAiResult(r);
             setMethod("manual");
-            // Fiche validée -> portrait illustré généré automatiquement.
-            void generatePortraitFor(s);
           }}
           onError={setError}
         />
@@ -482,11 +490,13 @@ function ImportPanel({
 function AiPanel({
   campaignId,
   seed,
+  generatePortraitFor,
   onResult,
   onError,
 }: {
   campaignId: string;
   seed?: CampaignSeed;
+  generatePortraitFor: (sheet: CharacterSheet) => Promise<string | null>;
   onResult: (sheet: CharacterSheet, result: AIResult) => void;
   onError: (msg: string | null) => void;
 }) {
@@ -501,9 +511,16 @@ function AiPanel({
       description: text,
       ...(seed ? { seed } : {}),
     });
-    setBusy(false);
-    if (result.ok && result.data) onResult(sheetFromAI(result.data), result);
-    else onError(result.errorMessage ?? "La génération a échoué.");
+    if (result.ok && result.data) {
+      const s = sheetFromAI(result.data);
+      const url = await generatePortraitFor(s);
+      if (url) s.portrait_url = url;
+      setBusy(false);
+      onResult(s, result);
+    } else {
+      setBusy(false);
+      onError(result.errorMessage ?? "La génération a échoué.");
+    }
   }
 
   return (
