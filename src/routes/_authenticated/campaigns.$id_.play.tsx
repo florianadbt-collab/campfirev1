@@ -540,6 +540,7 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
+        <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
         {gmView && (
           <div className="grid grid-cols-2 gap-2">
             <button
