@@ -189,15 +189,16 @@ function CharacterPage() {
       description: "",
       ...(seed ? { seed } : {}),
     });
-    setBusy(false);
     if (result.ok && result.data) {
       const newSheet = sheetFromAI(result.data);
+      const url = await generatePortraitFor(newSheet);
+      if (url) newSheet.portrait_url = url;
       setSheet(newSheet);
       setAiResult(result);
-      void generatePortraitFor(newSheet);
     } else {
       setError(result.errorMessage ?? "La génération a échoué.");
     }
+    setBusy(false);
   }
 
 
