@@ -452,7 +452,6 @@ function PlayPage() {
 
         {/* Zone centrale */}
         <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
-          <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
           {gmView && lastScene?.read_aloud && (
             <p className="rounded-2xl border border-rpg/30 bg-rpg/5 p-3 text-sm italic text-foreground">
               📖 À lire aux joueurs : {lastScene.read_aloud}
@@ -541,6 +540,7 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
+        <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
         {gmView && (
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -586,13 +586,7 @@ function PlayPage() {
             </li>
           </ul>
         )}
-        {!canAct ? (
-          <p className="rounded-xl border border-rpg/20 bg-secondary px-3 py-3 text-center text-xs text-muted-foreground">
-            {turn.state === "NARRATION"
-              ? "Le récit avance : attendez la suite du MJ."
-              : "Ce n'est pas votre tour — suivez la scène en direct."}
-          </p>
-        ) : (
+        {canAct && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
