@@ -178,6 +178,28 @@ function CharacterPage() {
     void generatePortraitFor(sheet);
   }
 
+  /** Relance la génération IA (mode "Surprends-moi") tant que le personnage n'est pas validé. */
+  async function surprise() {
+    if (!id) return;
+    setBusy(true);
+    setError(null);
+    const result = await AIService.generateCharacter({
+      campaignId: id,
+      description: "",
+      ...(seed ? { seed } : {}),
+    });
+    setBusy(false);
+    if (result.ok && result.data) {
+      const newSheet = sheetFromAI(result.data);
+      setSheet(newSheet);
+      setAiResult(result);
+      void generatePortraitFor(newSheet);
+    } else {
+      setError(result.errorMessage ?? "La génération a échoué.");
+    }
+  }
+
+
   async function save() {
     if (!userId) return;
     if (!sheet.name.trim()) {
