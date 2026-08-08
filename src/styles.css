@@ -131,6 +131,19 @@
   }
 }
 
+@utility rpg-button-secondary {
+  @apply relative inline-flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-rpg/30 bg-secondary px-4 py-3 text-sm font-semibold text-foreground transition-all duration-200 active:scale-[0.98];
+
+  &:hover {
+    border-color: var(--color-rpg-muted);
+    background-color: var(--color-muted);
+  }
+
+  &:active {
+    background-color: var(--color-card);
+  }
+}
+
 @utility rpg-glow {
   box-shadow: 0 0 40px -12px var(--color-rpg-glow);
 }

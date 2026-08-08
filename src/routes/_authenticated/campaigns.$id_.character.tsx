@@ -178,6 +178,28 @@ function CharacterPage() {
     void generatePortraitFor(sheet);
   }
 
+  /** Relance la génération IA (mode "Surprends-moi") tant que le personnage n'est pas validé. */
+  async function surprise() {
+    if (!id) return;
+    setBusy(true);
+    setError(null);
+    const result = await AIService.generateCharacter({
+      campaignId: id,
+      description: "",
+      ...(seed ? { seed } : {}),
+    });
+    setBusy(false);
+    if (result.ok && result.data) {
+      const newSheet = sheetFromAI(result.data);
+      setSheet(newSheet);
+      setAiResult(result);
+      void generatePortraitFor(newSheet);
+    } else {
+      setError(result.errorMessage ?? "La génération a échoué.");
+    }
+  }
+
+
   async function save() {
     if (!userId) return;
     if (!sheet.name.trim()) {
@@ -279,6 +301,8 @@ function CharacterPage() {
           onPortrait={handlePortrait}
           portraitBusy={portraitBusy}
           onGeneratePortrait={generatePortrait}
+          onSurprise={surprise}
+          canSurprise={!loadedId && !saved}
           locked={locked}
           busy={busy}
           saved={saved}
@@ -531,6 +555,8 @@ function SheetEditor({
   onPortrait,
   portraitBusy,
   onGeneratePortrait,
+  onSurprise,
+  canSurprise,
   locked,
   busy,
   saved,
@@ -541,6 +567,8 @@ function SheetEditor({
   onPortrait: (f: File) => void;
   portraitBusy: boolean;
   onGeneratePortrait: () => void;
+  onSurprise: () => void;
+  canSurprise: boolean;
   locked: boolean;
   busy: boolean;
   saved: boolean;
@@ -633,6 +661,24 @@ function SheetEditor({
           ? "La campagne a commencé : vos modifications restent possibles mais visibles du MJ IA."
           : "Tous les champs restent modifiables tant que la campagne n'a pas commencé."}
       </p>
+
+      {canSurprise && (
+        <button
+          type="button"
+          onClick={onSurprise}
+          disabled={busy}
+          className="rpg-button-secondary py-3 disabled:opacity-50"
+        >
+          {busy ? (
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-rpg" />
+          ) : (
+            <Sparkles className="h-5 w-5 shrink-0 text-rpg" />
+          )}
+          <span className="font-display tracking-wide">
+            {busy ? "Le MJ imagine…" : "Surprends-moi à nouveau"}
+          </span>
+        </button>
+      )}
 
       <button type="button" onClick={onSave} disabled={busy} className="rpg-button py-4 disabled:opacity-50">
         {busy ? (
