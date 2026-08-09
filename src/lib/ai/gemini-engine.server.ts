@@ -69,9 +69,32 @@ const SYSTEM_PROMPT =
   "La narration est l'essentiel : les dialogues restent rares et courts. " +
   "Tu réponds TOUJOURS avec un unique objet JSON valide, sans texte autour, sans balises markdown.";
 
+const MUSIC_MOODS = new Set([
+  "exploration", "village", "ville", "taverne", "voyage", "mystere", "tension", "enquete",
+  "combat", "combat_majeur", "boss", "victoire", "defaite", "tragedie", "repos",
+]);
+
+/** Commande musicale structurée produite par Gemini (interprétée par Campfire). */
+function parseMusicCommand(value: unknown): SceneResponse["music_command"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const mood = String(v["mood"] ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (!MUSIC_MOODS.has(mood)) return null;
+  const action = String(v["action"] ?? "keep").toLowerCase();
+  return {
+    type: "music",
+    action: action === "change" || action === "stop" ? action : "keep",
+    mood,
+    genre: String(v["genre"] ?? ""),
+    intensity: Math.max(1, Math.min(5, Number(v["intensity"] ?? 2) || 2)),
+    search_query: String(v["search_query"] ?? ""),
+  };
+}
+
 const SCENE_JSON_CONTRACT =
   '{"scene_title":string,"narration":string,"scene_mood":string,"location":string,"world_time":string,' +
   '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
+  '"music_command":{"type":"music","action":"change"|"keep"|"stop","mood":string,"genre":string,"intensity":number,"search_query":string},' +
   '"dialogues":[{"speaker":string,"line":string}],' +
   '"dice_request":{"formula":string,"threshold":number,"reason":string,"ability":string}|null,' +
   '"scene_state":"NARRATION"|"PLAYER_TURN"|"GROUP_CHOICE"|"COMBAT"|"DIALOGUE",' +
@@ -87,6 +110,11 @@ const SCENE_RULES = [
   "- tension : entier de 0 à 100.",
   "- location, world_time (ex: \"Jour 3 — 17h20\"), weather : toujours renseignés, en français.",
   "- music_query et image_prompt en anglais.",
+  "- music_command : ambiance musicale. mood parmi exploration, village, ville, taverne, voyage, mystere,",
+  "  tension, enquete, combat, combat_majeur, boss, victoire, defaite, tragedie, repos.",
+  "  action = \"keep\" par défaut : ne demande \"change\" QUE lors d'une vraie rupture d'ambiance",
+  "  (exploration -> combat, combat -> boss, boss -> victoire). Jamais de changement à chaque réponse.",
+  "  intensity : entier 1 à 5. search_query en anglais.",
   "- suggested_actions : 3 ou 4 actions courtes, concrètes, à la 2e personne.",
   "  Si une action proposée nécessite un jet de dé, termine-la par la caractéristique et son modificateur entre parenthèses,",
   "  ex : \"Forcer la porte (Force, +2)\", \"Convaincre le garde (Charisme, -1)\", \"Sauter le fossé (Dextérité, aucun modificateur)\".",
@@ -355,6 +383,7 @@ function normalizeScene(value: unknown): SceneResponse {
     narration: String(v["narration"] ?? ""),
     scene_mood: String(v["scene_mood"] ?? ""),
     music_query: String(v["music_query"] ?? ""),
+    music_command: parseMusicCommand(v["music_command"]),
     image_prompt: String(v["image_prompt"] ?? ""),
     suggested_actions: actions,
     location: String(v["location"] ?? ""),
