@@ -28,7 +28,6 @@ export interface MusicCommand {
   /** 1 à 5 */
   intensity?: number;
   search_query?: string;
-  [key: string]: string | number | undefined;
 }
 
 export const MOODS: Record<MusicMood, { label: string; query: string; intensity: number }> = {

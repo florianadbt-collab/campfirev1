@@ -69,7 +69,7 @@ export type SceneResponse = {
   scene_mood: string;
   music_query: string;
   /** Commande d'ambiance structurée, interprétée par Campfire (jamais par Gemini). */
-  music_command?: import("@/lib/spotify/moods").MusicCommand | null;
+  music_command?: { [key: string]: Json } | null;
   image_prompt: string;
   suggested_actions: string[];
   /** Barre d'ambiance — alimentée par le MJ IA. */
