@@ -118,9 +118,8 @@ async function loadConnection(userId: string): Promise<StoredConnection | null> 
 
 async function saveConnection(userId: string, patch: Record<string, unknown>) {
   const db = await admin();
-  const { error } = await db
-    .from("spotify_connections")
-    .upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+  const row = { user_id: userId, ...patch } as never;
+  const { error } = await db.from("spotify_connections").upsert(row, { onConflict: "user_id" });
   if (error) console.error("[spotify] save connection failed", error.message);
 }
 
