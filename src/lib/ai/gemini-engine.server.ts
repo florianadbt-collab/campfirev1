@@ -72,6 +72,7 @@ const SYSTEM_PROMPT =
 const SCENE_JSON_CONTRACT =
   '{"scene_title":string,"narration":string,"scene_mood":string,"location":string,"world_time":string,' +
   '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
+  '"music_command":{"type":"music","action":"change"|"keep"|"stop","mood":string,"genre":string,"intensity":number,"search_query":string},' +
   '"dialogues":[{"speaker":string,"line":string}],' +
   '"dice_request":{"formula":string,"threshold":number,"reason":string,"ability":string}|null,' +
   '"scene_state":"NARRATION"|"PLAYER_TURN"|"GROUP_CHOICE"|"COMBAT"|"DIALOGUE",' +
@@ -87,6 +88,11 @@ const SCENE_RULES = [
   "- tension : entier de 0 à 100.",
   "- location, world_time (ex: \"Jour 3 — 17h20\"), weather : toujours renseignés, en français.",
   "- music_query et image_prompt en anglais.",
+  "- music_command : ambiance musicale. mood parmi exploration, village, ville, taverne, voyage, mystere,",
+  "  tension, enquete, combat, combat_majeur, boss, victoire, defaite, tragedie, repos.",
+  "  action = \"keep\" par défaut : ne demande \"change\" QUE lors d'une vraie rupture d'ambiance",
+  "  (exploration -> combat, combat -> boss, boss -> victoire). Jamais de changement à chaque réponse.",
+  "  intensity : entier 1 à 5. search_query en anglais.",
   "- suggested_actions : 3 ou 4 actions courtes, concrètes, à la 2e personne.",
   "  Si une action proposée nécessite un jet de dé, termine-la par la caractéristique et son modificateur entre parenthèses,",
   "  ex : \"Forcer la porte (Force, +2)\", \"Convaincre le garde (Charisme, -1)\", \"Sauter le fossé (Dextérité, aucun modificateur)\".",
