@@ -69,6 +69,28 @@ const SYSTEM_PROMPT =
   "La narration est l'essentiel : les dialogues restent rares et courts. " +
   "Tu réponds TOUJOURS avec un unique objet JSON valide, sans texte autour, sans balises markdown.";
 
+const MUSIC_MOODS = new Set([
+  "exploration", "village", "ville", "taverne", "voyage", "mystere", "tension", "enquete",
+  "combat", "combat_majeur", "boss", "victoire", "defaite", "tragedie", "repos",
+]);
+
+/** Commande musicale structurée produite par Gemini (interprétée par Campfire). */
+function parseMusicCommand(value: unknown): SceneResponse["music_command"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const mood = String(v["mood"] ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (!MUSIC_MOODS.has(mood)) return null;
+  const action = String(v["action"] ?? "keep").toLowerCase();
+  return {
+    type: "music",
+    action: action === "change" || action === "stop" ? action : "keep",
+    mood,
+    genre: String(v["genre"] ?? ""),
+    intensity: Math.max(1, Math.min(5, Number(v["intensity"] ?? 2) || 2)),
+    search_query: String(v["search_query"] ?? ""),
+  };
+}
+
 const SCENE_JSON_CONTRACT =
   '{"scene_title":string,"narration":string,"scene_mood":string,"location":string,"world_time":string,' +
   '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
