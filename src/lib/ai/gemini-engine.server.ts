@@ -361,6 +361,7 @@ function normalizeScene(value: unknown): SceneResponse {
     narration: String(v["narration"] ?? ""),
     scene_mood: String(v["scene_mood"] ?? ""),
     music_query: String(v["music_query"] ?? ""),
+    music_command: parseMusicCommand(v["music_command"]),
     image_prompt: String(v["image_prompt"] ?? ""),
     suggested_actions: actions,
     location: String(v["location"] ?? ""),
