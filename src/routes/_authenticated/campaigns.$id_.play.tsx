@@ -20,6 +20,8 @@ import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/componen
 import { TurnBanner, canPlayerAct, sequentialTurn, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
+import { spotifyAmbiance } from "@/lib/spotify/spotify.functions";
+import type { MusicCommand } from "@/lib/spotify/moods";
 
 export const Route = createFileRoute("/_authenticated/campaigns/$id_/play")({
   head: () => ({
@@ -217,6 +219,23 @@ function PlayPage() {
     () => sequentialTurn(turnStateFrom(lastScene), turnOrder, actionsPlayed),
     [lastScene, turnOrder, actionsPlayed],
   );
+  /**
+   * Ambiance Spotify : seul l'appareil du MJ pilote la lecture.
+   * Une erreur Spotify n'interrompt jamais la partie.
+   */
+  const musicRef = useRef<string>("");
+  useEffect(() => {
+    if (!isGm) return;
+    const command = lastScene?.music_command as MusicCommand | undefined | null;
+    if (!command || command.action !== "change") return;
+    const key = `${command.mood}:${messages.length}`;
+    if (musicRef.current === command.mood) return;
+    musicRef.current = command.mood;
+    void spotifyAmbiance({ data: { command } })
+      .then((r) => console.info("[spotify] ambiance", key, r.message))
+      .catch(() => undefined);
+  }, [isGm, lastScene, messages.length]);
+
   const myTurn = canPlayerAct(turn, userId);
   const canAct = myTurn || gmView;
 
