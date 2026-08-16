@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { ControlAction, SpotifyStatus } from "./spotify.server";
+import type { ControlAction, DiagnosticStep, SpotifyStatus } from "./spotify.server";
 import type { MusicCommand } from "./moods";
 
 /** Chargé uniquement côté serveur (client secret + refresh tokens). */
@@ -49,6 +49,18 @@ export const spotifyDisconnect = createServerFn({ method: "POST" })
     const mod = await load();
     await mod.disconnect(context.userId);
     return { ok: true as const };
+  });
+
+/** ▶ Tester Spotify — diagnostic complet, déclenché uniquement par le MJ. */
+export const spotifyTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ ok: boolean; steps: DiagnosticStep[] }> => {
+    const mod = await load();
+    try {
+      return await mod.runDiagnostic(context.userId);
+    } catch (e) {
+      return { ok: false, steps: [{ label: "Diagnostic", ok: false, detail: mod.describeError(e) }] };
+    }
   });
 
 export const spotifySelectDevice = createServerFn({ method: "POST" })
