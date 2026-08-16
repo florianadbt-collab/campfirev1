@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, LogOut, Music2, Pause, Play, RefreshCw, SkipForward, Volume2 } from "lucide-react";
+import { Loader2, LogOut, Music2, Pause, Play, RefreshCw, SkipForward, Stethoscope, Volume2 } from "lucide-react";
 import { PanelCard } from "@/components/game/panels";
 import {
   spotifyAuthUrl,
@@ -8,16 +8,19 @@ import {
   spotifyExchange,
   spotifySelectDevice,
   spotifyStatus,
+  spotifyTest,
 } from "@/lib/spotify/spotify.functions";
 import { MOODS, MOOD_KEYS } from "@/lib/spotify/moods";
 
 type Status = Awaited<ReturnType<typeof spotifyStatus>>;
+type Diagnostic = Awaited<ReturnType<typeof spotifyTest>>;
 
 /** 🎵 Spotify — section Immersion du MJ. Vraie intégration Web API, côté serveur. */
 export function SpotifyPanel() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [diag, setDiag] = useState<Diagnostic | null>(null);
   const stateRef = useRef<string>("");
 
   const refresh = useCallback(async () => {
@@ -71,6 +74,18 @@ export function SpotifyPanel() {
     setBusy(true);
     const out = await spotifyControl({ data: { action, ...(extra ?? {}) } });
     setMessage(out.message);
+    await refresh();
+    setBusy(false);
+  }
+
+  async function runTest() {
+    setBusy(true);
+    setDiag(null);
+    try {
+      setDiag(await spotifyTest());
+    } catch {
+      setMessage("Diagnostic Spotify indisponible.");
+    }
     await refresh();
     setBusy(false);
   }
@@ -178,6 +193,14 @@ export function SpotifyPanel() {
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Music2 className="h-3.5 w-3.5" />}
           {connected ? "Reconnecter Spotify" : "Connecter Spotify"}
         </button>
+        <button
+          type="button"
+          onClick={runTest}
+          disabled={busy || !status?.configured}
+          className="flex items-center gap-1.5 rounded-full border border-rpg/30 bg-secondary px-3 py-1.5 text-[11px] text-foreground disabled:opacity-50"
+        >
+          <Stethoscope className="h-3.5 w-3.5" /> ▶ Tester Spotify
+        </button>
         {connected && (
           <button
             type="button"
@@ -195,6 +218,17 @@ export function SpotifyPanel() {
 
       {(message || status?.error) && (
         <p className="pt-2 text-[11px] text-muted-foreground">{message ?? status?.error}</p>
+      )}
+
+      {diag && (
+        <ul className="mt-2 flex flex-col gap-1 rounded-xl border border-rpg/20 bg-secondary p-2">
+          {diag.steps.map((s, i) => (
+            <li key={i} className="text-[11px] text-muted-foreground">
+              <span className={s.ok ? "text-emerald-500" : "text-destructive"}>{s.ok ? "✓" : "✕"}</span>{" "}
+              <span className="text-foreground">{s.label}</span> — {s.detail}
+            </li>
+          ))}
+        </ul>
       )}
     </PanelCard>
   );
