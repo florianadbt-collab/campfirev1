@@ -8,14 +8,14 @@ const load = () => import("./spotify.server");
 
 export const spotifyAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { origin: string; state: string }) => data)
-  .handler(async ({ data }) => {
+  .inputValidator((data: { origin?: string; state: string }) => data)
+  .handler(async ({ data, context }) => {
     const mod = await load();
     try {
       return {
         ok: true as const,
-        url: mod.buildAuthorizeUrl(data.origin, data.state),
-        redirectUri: mod.resolveRedirectUri(data.origin),
+        url: await mod.buildAuthorizeUrl(context.userId, data.state),
+        redirectUri: mod.SPOTIFY_REDIRECT_URI,
         message: "",
       };
     } catch (e) {
