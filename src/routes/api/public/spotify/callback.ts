@@ -38,7 +38,10 @@ export const Route = createFileRoute("/api/public/spotify/callback")({
             console.error("[spotify] invalid state on callback");
           } else {
             try {
-              await mod.exchangeCode(userId, code);
+              const res = await mod.exchangeCode(userId, code);
+              if (res.warning) {
+                detail = `Spotify connecté. ${res.warning} Vous pouvez fermer cette fenêtre.`;
+              }
               console.log("[spotify] tokens stored from callback", { userId });
             } catch (e) {
               status = "error";
