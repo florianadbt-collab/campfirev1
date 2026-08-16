@@ -24,25 +24,67 @@ function creds() {
   return { clientId, clientSecret };
 }
 
-/** N'accepte que les origines Campfire (préversion, production, local). */
-export function resolveRedirectUri(origin: string | undefined): string {
-  const fallback = "https://campfirev1.lovable.app";
-  let url: URL;
-  try {
-    url = new URL(origin ?? fallback);
-  } catch {
-    url = new URL(fallback);
-  }
-  const ok =
-    url.hostname.endsWith(".lovable.app") ||
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1";
-  return `${ok ? url.origin : fallback}${CALLBACK_PATH}`;
+/**
+ * Redirect URI unique et fixe : c'est la seule valeur enregistrée côté Spotify.
+ * Elle ne dépend PAS de l'origine du navigateur (préversion incluse), sinon
+ * Spotify refuse l'autorisation ou le callback atterrit sur une autre origine.
+ */
+export const SPOTIFY_REDIRECT_URI = `https://campfirev1.lovable.app${CALLBACK_PATH}`;
+
+export function resolveRedirectUri(_origin?: string | undefined): string {
+  return SPOTIFY_REDIRECT_URI;
 }
 
-export function buildAuthorizeUrl(origin: string | undefined, state: string) {
+/** State signé (HMAC) : porte l'identifiant du MJ jusqu'au callback. */
+async function stateKey(): Promise<CryptoKey> {
+  const { clientSecret } = creds();
+  return crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(clientSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+}
+
+function b64url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+export async function signState(userId: string, nonce: string): Promise<string> {
+  const payload = `${userId}.${nonce}.${Date.now()}`;
+  const sig = await crypto.subtle.sign("HMAC", await stateKey(), new TextEncoder().encode(payload));
+  return `${b64url(new TextEncoder().encode(payload))}.${b64url(new Uint8Array(sig))}`;
+}
+
+/** Renvoie l'userId si le state est authentique et récent (15 min), sinon null. */
+export async function verifyState(state: string | null): Promise<string | null> {
+  if (!state || !state.includes(".")) return null;
+  const idx = state.lastIndexOf(".");
+  const rawPayload = state.slice(0, idx);
+  const sig = state.slice(idx + 1);
+  let payload: string;
+  try {
+    payload = atob(rawPayload.replace(/-/g, "+").replace(/_/g, "/"));
+  } catch {
+    return null;
+  }
+  const expectedSig = await crypto.subtle.sign(
+    "HMAC",
+    await stateKey(),
+    new TextEncoder().encode(payload),
+  );
+  if (b64url(new Uint8Array(expectedSig)) !== sig) return null;
+  const [userId, , issued] = payload.split(".");
+  if (!userId || !issued) return null;
+  if (Date.now() - Number(issued) > 15 * 60_000) return null;
+  return userId;
+}
+
+export async function buildAuthorizeUrl(userId: string, nonce: string) {
   const { clientId } = creds();
-  const redirectUri = resolveRedirectUri(origin);
+  const redirectUri = SPOTIFY_REDIRECT_URI;
+  const state = await signState(userId, nonce);
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
@@ -124,12 +166,12 @@ async function saveConnection(userId: string, patch: Record<string, unknown>) {
 }
 
 /** Échange le code d'autorisation contre des tokens et enregistre la connexion. */
-export async function exchangeCode(userId: string, code: string, origin: string | undefined) {
+export async function exchangeCode(userId: string, code: string, _origin?: string | undefined) {
   const payload = await tokenRequest(
     new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: resolveRedirectUri(origin),
+      redirect_uri: SPOTIFY_REDIRECT_URI,
     }),
   );
   const profile = await spotifyFetch<Record<string, unknown>>(payload.access_token, "/me");
