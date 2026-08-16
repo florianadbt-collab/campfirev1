@@ -174,19 +174,34 @@ export async function exchangeCode(userId: string, code: string, _origin?: strin
       redirect_uri: SPOTIFY_REDIRECT_URI,
     }),
   );
-  const profile = await spotifyFetch<Record<string, unknown>>(payload.access_token, "/me");
+  // 1) On enregistre les tokens AVANT tout appel API : la connexion est valide
+  //    même si /me échoue (403 compte non Premium, restrictions dashboard...).
   await saveConnection(userId, {
     access_token: payload.access_token,
     refresh_token: payload.refresh_token ?? "",
     expires_at: new Date(Date.now() + payload.expires_in * 1000).toISOString(),
     scope: payload.scope ?? "",
-    display_name: (profile?.["display_name"] as string) ?? null,
-    account_id: (profile?.["id"] as string) ?? null,
-    product: (profile?.["product"] as string) ?? null,
     needs_reconnect: false,
   });
-  console.log("[spotify] connected", { userId, product: profile?.["product"] });
-  return { ok: true as const };
+
+  // 2) Profil optionnel : non bloquant.
+  let warning: string | null = null;
+  try {
+    const profile = await spotifyFetch<Record<string, unknown>>(payload.access_token, "/me");
+    await saveConnection(userId, {
+      display_name: (profile?.["display_name"] as string) ?? null,
+      account_id: (profile?.["id"] as string) ?? null,
+      product: (profile?.["product"] as string) ?? null,
+    });
+    if (profile?.["product"] !== "premium") {
+      warning = "Compte Spotify non Premium : le contrôle de lecture sera indisponible.";
+    }
+    console.log("[spotify] connected", { userId, product: profile?.["product"] });
+  } catch (err) {
+    warning = err instanceof Error ? err.message : "Profil Spotify inaccessible.";
+    console.error("[spotify] profile fetch failed (non bloquant)", warning);
+  }
+  return { ok: true as const, warning };
 }
 
 /** Renvoie un access token valide, en le renouvelant si nécessaire. */
