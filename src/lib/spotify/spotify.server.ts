@@ -407,7 +407,12 @@ export async function applyMusicCommand(
   if (conn.last_mood === mood) {
     return { ok: true, message: "Ambiance déjà en cours.", changed: false, mood };
   }
-  if (since < COOLDOWN_MS) {
+  const prev = normalizeMood(conn.last_mood);
+  const prevIntensity = prev ? MOODS[prev].intensity : 0;
+  const nextIntensity = MOODS[mood].intensity;
+  // Une vraie rupture dramatique (combat, boss, victoire…) passe outre le cooldown.
+  const majorTransition = Math.abs(nextIntensity - prevIntensity) >= 2;
+  if (since < COOLDOWN_MS && !majorTransition) {
     console.log("[spotify] cooldown active, change skipped", { userId, mood });
     return { ok: true, message: "Changement d'ambiance différé (cooldown).", changed: false, mood };
   }
@@ -419,4 +424,61 @@ export async function applyMusicCommand(
     console.log("[spotify] ambience changed", { userId, mood });
   }
   return { ...out, mood };
+}
+
+export interface DiagnosticStep {
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+/** Diagnostic MJ : vérifie config, connexion, appareils puis lance une vraie lecture. */
+export async function runDiagnostic(
+  userId: string,
+): Promise<{ ok: boolean; steps: DiagnosticStep[] }> {
+  const steps: DiagnosticStep[] = [];
+  const configured = Boolean(
+    process.env["SPOTIFY_CLIENT_ID"] && process.env["SPOTIFY_CLIENT_SECRET"],
+  );
+  steps.push({
+    label: "Configuration serveur",
+    ok: configured,
+    detail: configured ? "Client ID + secret présents" : "Secrets Spotify manquants",
+  });
+  if (!configured) return { ok: false, steps };
+
+  const token = await validAccessToken(userId);
+  steps.push({
+    label: "Connexion / token",
+    ok: Boolean(token),
+    detail: token ? "Access token valide (renouvelé si besoin)" : "Reconnecte ton compte Spotify",
+  });
+  if (!token) return { ok: false, steps };
+
+  let devices: SpotifyDevice[] = [];
+  try {
+    const res = await spotifyFetch<{ devices: SpotifyDevice[] }>(token, "/me/player/devices");
+    devices = res?.devices ?? [];
+  } catch (e) {
+    steps.push({ label: "Appareils", ok: false, detail: describeError(e) });
+    return { ok: false, steps };
+  }
+  steps.push({
+    label: "Appareils disponibles",
+    ok: devices.length > 0,
+    detail: devices.length ? devices.map((d) => d.name).join(", ") : "Ouvre Spotify sur un appareil",
+  });
+  if (devices.length === 0) return { ok: false, steps };
+
+  const target = await targetDevice(userId, token);
+  steps.push({
+    label: "Appareil cible",
+    ok: Boolean(target),
+    detail: devices.find((d) => d.id === target)?.name ?? "aucun",
+  });
+
+  const out = await control(userId, { action: "play", query: MOODS.repos.query });
+  steps.push({ label: "Lecture test", ok: out.ok, detail: out.message });
+  console.log("[spotify] diagnostic", { userId, ok: out.ok });
+  return { ok: out.ok, steps };
 }
