@@ -5,7 +5,6 @@ import {
   spotifyAuthUrl,
   spotifyControl,
   spotifyDisconnect,
-  spotifyExchange,
   spotifySelectDevice,
   spotifyStatus,
   spotifyTest,
@@ -25,9 +24,12 @@ export function SpotifyPanel() {
 
   const refresh = useCallback(async () => {
     try {
-      setStatus(await spotifyStatus());
+      const next = await spotifyStatus();
+      setStatus(next);
+      return next;
     } catch {
       setMessage("Statut Spotify indisponible.");
+      return null;
     }
   }, []);
 
@@ -37,13 +39,17 @@ export function SpotifyPanel() {
     return () => window.clearInterval(t);
   }, [refresh]);
 
+  /**
+   * L'échange code → tokens se fait entièrement côté serveur dans le callback.
+   * Ici on ouvre la popup puis on interroge le statut jusqu'à la connexion.
+   */
   async function connect() {
     setBusy(true);
-    setMessage(null);
-    const state = Math.random().toString(36).slice(2);
-    stateRef.current = state;
+    setMessage("Autorisation Spotify en cours…");
+    const nonce = Math.random().toString(36).slice(2);
+    stateRef.current = nonce;
     const popup = window.open("", "spotify-auth", "width=520,height=720");
-    const res = await spotifyAuthUrl({ data: { origin: window.location.origin, state } });
+    const res = await spotifyAuthUrl({ data: { state: nonce } });
     if (!res.ok || !res.url) {
       popup?.close();
       setMessage(res.message ?? "Spotify n'est pas configuré.");
@@ -51,23 +57,31 @@ export function SpotifyPanel() {
       return;
     }
     if (popup) popup.location.href = res.url;
-
-    const onMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const payload = event.data as { type?: string; code?: string; state?: string; error?: string };
-      if (payload?.type !== "spotifyOAuthCallback") return;
-      window.removeEventListener("message", onMessage);
-      if (payload.error || !payload.code || payload.state !== stateRef.current) {
-        setMessage("Autorisation Spotify refusée.");
-        setBusy(false);
-        return;
-      }
-      const out = await spotifyExchange({ data: { code: payload.code, origin: window.location.origin } });
-      setMessage(out.message);
-      await refresh();
+    else {
+      setMessage("Autorise les fenêtres pop-up pour connecter Spotify.");
       setBusy(false);
+      return;
+    }
+
+    const onMessage = (event: MessageEvent) => {
+      const payload = event.data as { type?: string; status?: string; detail?: string };
+      if (payload?.type !== "spotifyOAuthCallback") return;
+      if (payload.status === "error") setMessage(payload.detail ?? "Connexion Spotify échouée.");
     };
     window.addEventListener("message", onMessage);
+
+    // Sondage du statut serveur : indépendant de l'origine de la popup.
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const next = await refresh();
+      if (next?.connected) {
+        setMessage("Spotify connecté.");
+        break;
+      }
+      if (i > 3 && popup.closed) break;
+    }
+    window.removeEventListener("message", onMessage);
+    setBusy(false);
   }
 
   async function act(action: "play" | "pause" | "resume" | "next" | "volume", extra?: { query?: string; volume?: number }) {
