@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Clock, CloudSun, Loader2, MapPin, Sparkles, Theater } from "lucide-react";
 import { AIService } from "@/lib/ai/ai-service";
-import { MusicPlayer } from "@/components/game/music-player";
-import { SpotifyPanel } from "@/components/game/spotify-panel";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { PanelCard } from "@/components/game/panels";
 import type { Ambiance } from "@/components/game/ambiance-bar";
@@ -21,13 +19,11 @@ export function GmTools({
   ambiance,
   scenes,
   turns,
-  musicSuggestion,
 }: {
   campaignId: string;
   ambiance: Ambiance;
   scenes: Partial<SceneResponse>[];
   turns: number;
-  musicSuggestion?: string;
 }) {
   const [summary, setSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -127,10 +123,6 @@ export function GmTools({
           ))}
         </ul>
       </PanelCard>
-
-      <MusicPlayer canControl {...(musicSuggestion ? { suggestion: musicSuggestion } : {})} />
-
-      <SpotifyPanel />
 
       <IllustrationSlot
         kind="scene"

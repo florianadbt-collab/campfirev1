@@ -75,7 +75,6 @@ export function GameMenus({
   party,
   isGm = false,
   ambiance,
-  musicSuggestion,
   turns = 0,
 }: {
   campaignId: string;
@@ -85,7 +84,6 @@ export function GameMenus({
   party: { user_id: string; name: string; portrait_url: string | null; role: string }[];
   isGm?: boolean;
   ambiance: Ambiance;
-  musicSuggestion?: string;
   turns?: number;
 }) {
   const [drawer, setDrawer] = useState(false);
@@ -342,7 +340,6 @@ export function GameMenus({
                   ambiance={ambiance}
                   scenes={scenes}
                   turns={turns}
-                  {...(musicSuggestion ? { musicSuggestion } : {})}
                 />
               )}
 
