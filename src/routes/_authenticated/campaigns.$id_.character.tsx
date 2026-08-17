@@ -91,7 +91,7 @@ function CharacterPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("campaigns")
-        .select("id, name, genre, description, gm_plays, status")
+        .select("id, name, genre, description, inspiration, gm_plays, status")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -130,7 +130,14 @@ function CharacterPage() {
   const seed: CampaignSeed | undefined = useMemo(() => {
     const c = campaignQ.data;
     if (!c) return undefined;
-    return { id: c.id, name: c.name, type: c.genre, universe: c.description, gmPlays: c.gm_plays };
+    return {
+      id: c.id,
+      name: c.name,
+      type: c.genre,
+      universe: c.description,
+      inspiration: c.inspiration,
+      gmPlays: c.gm_plays,
+    };
   }, [campaignQ.data]);
 
   const locked = campaignQ.data?.status === "active";

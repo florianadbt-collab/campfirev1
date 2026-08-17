@@ -25,6 +25,8 @@ export interface CampaignSeed {
   name: string;
   type?: string | null;
   universe?: string | null;
+  /** Œuvres / univers cités par le MJ comme références créatives. */
+  inspiration?: string | null;
   gmPlays?: boolean;
 }
 

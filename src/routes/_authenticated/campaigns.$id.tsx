@@ -15,7 +15,7 @@ function campaignQuery(id: string) {
     queryFn: async () => {
       const { data: campaign, error: cErr } = await supabase
         .from("campaigns")
-        .select("id, name, description, genre, status, invite_code, owner_id, gm_plays")
+        .select("id, name, description, inspiration, genre, status, invite_code, owner_id, gm_plays")
         .eq("id", id)
         .maybeSingle();
       if (cErr) throw cErr;
@@ -168,6 +168,7 @@ function CampaignPage() {
         name: data.campaign.name,
         type: data.campaign.genre,
         universe: data.campaign.description,
+        inspiration: data.campaign.inspiration,
         gmPlays: data.campaign.gm_plays,
       },
       characters: characters ?? [],
