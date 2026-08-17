@@ -98,6 +98,47 @@ export type SceneResponse = {
   gm_notes?: string;
   gm_secrets?: string[];
   offscreen_events?: string[];
+  /** Conséquences persistantes de la scène sur le monde. */
+  world_update?: WorldUpdateBlock | null;
+}
+
+/**
+ * Ce que la scène change durablement dans le monde.
+ * Gemini propose, Campfire valide et enregistre.
+ */
+export interface WorldUpdateBlock {
+  [key: string]: Json | undefined;
+  time?: { day?: number; time_of_day?: string; weather?: string; location?: string };
+  events?: { summary: string; importance?: "major" | "minor"; visibility?: "public" | "gm" | "private"; user_id?: string; tags?: string[] }[];
+  /** Événements survenus hors de la présence des joueurs. */
+  world_events?: { summary: string; importance?: "major" | "minor"; visibility?: "public" | "gm" | "private" }[];
+  npcs?: {
+    name: string;
+    role?: string;
+    faction?: string;
+    personality?: string;
+    speech_style?: string;
+    appearance?: string;
+    status?: string;
+    location?: string;
+    alive?: boolean;
+    secret?: string;
+  }[];
+  /** Variations de relation (-25 à +25) d'un PNJ envers un joueur ou le groupe. */
+  relations?: {
+    npc: string;
+    user_id?: string;
+    trust?: number;
+    suspicion?: number;
+    hostility?: number;
+    opinion?: string;
+    reason?: string;
+  }[];
+  locations?: { name: string; summary?: string; visibility?: "public" | "gm" | "private"; user_id?: string }[];
+  factions?: { name: string; summary?: string; stance?: string }[];
+  quests?: { name: string; status?: string; summary?: string }[];
+  reputation?: { scope: string; summary?: string; user_id?: string }[];
+  conditions?: { user_id: string; label: string; severity?: "legere" | "serieuse" | "grave"; healed?: boolean }[];
 }
 
 /** Bloc de combat renvoyé par Gemini, appliqué et persisté par Campfire. */
