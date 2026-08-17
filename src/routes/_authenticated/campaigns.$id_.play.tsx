@@ -365,15 +365,15 @@ function PlayPage() {
       campaignId: id,
       roster,
       // Le seed (dont l'inspiration du MJ) accompagne CHAQUE tour, pas seulement l'ouverture.
-      ...(campaign
+      ...(data?.campaign
         ? {
             seed: {
               id,
-              name: campaign.name,
-              type: campaign.genre,
-              universe: campaign.description,
-              inspiration: campaign.inspiration,
-              gmPlays: campaign.gm_plays,
+              name: data.campaign.name,
+              type: data.campaign.genre,
+              universe: data.campaign.description,
+              inspiration: data.campaign.inspiration,
+              gmPlays: data.campaign.gm_plays,
             },
           }
         : {}),
