@@ -194,6 +194,11 @@ export function buildPrompt(req: AIRequest): string {
           `Personnage : ${String(intent?.["character"] ?? "Un joueur")}`,
           `Identifiant du joueur : ${String(intent?.["user_id"] ?? "inconnu")}`,
           `Action : ${String(intent?.["text"] ?? "")}`,
+          `Niveau du personnage : ${String(intent?.["level"] ?? "1")}`,
+          intent?.["target"] ? `Cible visée : ${JSON.stringify(intent["target"])}` : "",
+          intent?.["combat"]
+            ? `État du combat en cours (source de vérité de Campfire) : ${JSON.stringify(intent["combat"])}. Repars de ces PV et de ces noms.`
+            : "",
           roll ? `Résultat de dés fourni : ${JSON.stringify(roll)}. Tiens-en compte dans l'issue.` : "",
           "",
           "Enchaîne directement sur les conséquences. Reste cohérent avec les scènes précédentes.",
