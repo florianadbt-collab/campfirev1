@@ -508,6 +508,10 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
+        </aside>
+
+        {/* Zone centrale */}
+        <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
           {combat && (
             <EnemyList
               enemies={enemies}
@@ -517,10 +521,6 @@ function PlayPage() {
               showExactHp={gmView}
             />
           )}
-        </aside>
-
-        {/* Zone centrale */}
-        <main className={`flex min-w-0 flex-col gap-4 ${tab === "recit" ? "" : "hidden"} lg:flex`}>
           {gmView && lastScene?.read_aloud && (
             <p className="rounded-2xl border border-rpg/30 bg-rpg/5 p-3 text-sm italic text-foreground">
               📖 À lire aux joueurs : {lastScene.read_aloud}
