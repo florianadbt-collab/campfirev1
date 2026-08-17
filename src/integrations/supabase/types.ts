@@ -194,6 +194,113 @@ export type Database = {
           },
         ]
       }
+      combat_enemies: {
+        Row: {
+          campaign_id: string
+          combat_id: string
+          created_at: string
+          hp: number
+          id: string
+          is_defeated: boolean
+          level: number
+          max_hp: number
+          name: string
+          sort_order: number
+          status_label: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          combat_id: string
+          created_at?: string
+          hp?: number
+          id?: string
+          is_defeated?: boolean
+          level?: number
+          max_hp?: number
+          name: string
+          sort_order?: number
+          status_label?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          combat_id?: string
+          created_at?: string
+          hp?: number
+          id?: string
+          is_defeated?: boolean
+          level?: number
+          max_hp?: number
+          name?: string
+          sort_order?: number
+          status_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combat_enemies_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combat_enemies_combat_id_fkey"
+            columns: ["combat_id"]
+            isOneToOne: false
+            referencedRelation: "combats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combats: {
+        Row: {
+          active_participant: string | null
+          campaign_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiative: Json
+          round: number
+          status: string
+          turn_index: number
+          updated_at: string
+        }
+        Insert: {
+          active_participant?: string | null
+          campaign_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiative?: Json
+          round?: number
+          status?: string
+          turn_index?: number
+          updated_at?: string
+        }
+        Update: {
+          active_participant?: string | null
+          campaign_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiative?: Json
+          round?: number
+          status?: string
+          turn_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combats_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dice_requests: {
         Row: {
           campaign_id: string
@@ -342,60 +449,6 @@ export type Database = {
           id?: string
           updated_at?: string
           username?: string
-        }
-        Relationships: []
-      }
-      spotify_connections: {
-        Row: {
-          access_token: string
-          account_id: string | null
-          created_at: string
-          device_id: string | null
-          device_name: string | null
-          display_name: string | null
-          expires_at: string
-          last_change_at: string | null
-          last_mood: string | null
-          needs_reconnect: boolean
-          product: string | null
-          refresh_token: string
-          scope: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          account_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          device_name?: string | null
-          display_name?: string | null
-          expires_at: string
-          last_change_at?: string | null
-          last_mood?: string | null
-          needs_reconnect?: boolean
-          product?: string | null
-          refresh_token: string
-          scope?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          account_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          device_name?: string | null
-          display_name?: string | null
-          expires_at?: string
-          last_change_at?: string | null
-          last_mood?: string | null
-          needs_reconnect?: boolean
-          product?: string | null
-          refresh_token?: string
-          scope?: string
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }

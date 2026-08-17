@@ -110,13 +110,6 @@ export const AIService = {
       ...o,
     }),
 
-  generateMusic: (args: { query?: string }, o: Options = {}) =>
-    run<{ music_url: string | null; music_query: string }>({
-      task: "generateMusic",
-      payload: { ...args },
-      ...o,
-    }),
-
   summarizeCampaign: (args: { campaignId: string }, o: Options = {}) =>
     run({ task: "summarizeCampaign", campaignId: args.campaignId, ...o }),
 

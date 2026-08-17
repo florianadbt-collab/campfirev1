@@ -15,7 +15,6 @@ export type AITask =
   | "importCharacter"
   | "generatePortrait"
   | "generateSceneImage"
-  | "generateMusic"
   | "summarizeCampaign"
   | "generateNpc"
   | "generateLocation"
@@ -67,10 +66,9 @@ export type SceneResponse = {
   scene_title: string;
   narration: string;
   scene_mood: string;
-  music_query: string;
-  /** Commande d'ambiance structurée, interprétée par Campfire (jamais par Gemini). */
-  music_command?: { [key: string]: Json } | null;
   image_prompt: string;
+  /** État de combat proposé par Gemini — Campfire reste la source de vérité. */
+  combat?: CombatBlock | null;
   suggested_actions: string[];
   /** Barre d'ambiance — alimentée par le MJ IA. */
   location?: string;
@@ -98,6 +96,26 @@ export type SceneResponse = {
   gm_notes?: string;
   gm_secrets?: string[];
   offscreen_events?: string[];
+}
+
+/** Bloc de combat renvoyé par Gemini, appliqué et persisté par Campfire. */
+export type CombatStatus = "active" | "victory" | "defeat" | "flight" | "interrupted";
+
+export interface CombatEnemyBlock {
+  [key: string]: Json;
+  name: string;
+  level: number;
+  max_hp: number;
+  hp: number;
+  status: string;
+}
+
+export interface CombatBlock {
+  [key: string]: Json;
+  active: boolean;
+  status: CombatStatus;
+  round: number;
+  enemies: CombatEnemyBlock[];
 }
 
 /** Pilotage du tour de jeu — renvoyé par Gemini à chaque scène. */
