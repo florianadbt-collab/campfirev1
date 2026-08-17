@@ -334,8 +334,8 @@ function PlayPage() {
       campaign_id: id,
       user_id: userId,
       role: "player",
-      content: (target ? `${value} — cible : ${target.name}` : value) && roll
-        ? `${target ? `${value} — cible : ${target.name}` : value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${
+      content: roll
+        ? `${label}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${
             roll.critical === "success"
               ? "réussite critique"
               : roll.critical === "failure"
@@ -344,7 +344,7 @@ function PlayPage() {
                   ? "réussite"
                   : "échec"
           })`
-        : value,
+        : label,
     });
     if (insertError) {
       setError(insertError.message);
