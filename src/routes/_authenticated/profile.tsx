@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Dices, Hand } from "lucide-react";
+import type { DiceMode } from "@/lib/game/dice-contract";
 import { MobileShell } from "@/components/mobile-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { clearLocalIdentity } from "@/lib/local-identity";
@@ -15,7 +16,11 @@ function profileQuery() {
       if (!userId) throw new Error("Non connecté");
 
       const [{ data: profile, error: pErr }, { data: memberships, error: mErr }] = await Promise.all([
-        supabase.from("profiles").select("id, username, avatar_url").eq("id", userId).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("id, username, avatar_url, dice_mode")
+          .eq("id", userId)
+          .maybeSingle(),
         supabase
           .from("campaign_players")
           .select("role, campaigns(id, name, status)")
@@ -26,7 +31,8 @@ function profileQuery() {
 
       return {
         email: userData.user?.email ?? "",
-        profile: profile ?? { id: userId, username: "", avatar_url: null as string | null },
+        profile:
+          profile ?? { id: userId, username: "", avatar_url: null as string | null, dice_mode: "virtual" },
         memberships: memberships ?? [],
       };
     },
@@ -52,6 +58,9 @@ function ProfilePage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState(data.profile.username);
   const [avatarUrl, setAvatarUrl] = useState(data.profile.avatar_url ?? "");
+  const [diceMode, setDiceMode] = useState<DiceMode>(
+    data.profile.dice_mode === "physical" ? "physical" : "virtual",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -64,7 +73,7 @@ function ProfilePage() {
     setInfo(null);
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ username: username.trim(), avatar_url: avatarUrl.trim() || null })
+      .update({ username: username.trim(), avatar_url: avatarUrl.trim() || null, dice_mode: diceMode })
       .eq("id", data.profile.id);
     setSaving(false);
     if (updateError) {
@@ -72,6 +81,7 @@ function ProfilePage() {
     } else {
       setInfo("Profil mis à jour.");
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["dice-mode"] });
     }
   }
 
@@ -143,6 +153,39 @@ function ProfilePage() {
             placeholder="https://..."
           />
         </label>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Mode de lancer de dés
+          </legend>
+          <p className="text-xs text-muted-foreground">
+            Ce choix ne concerne que vous : chaque joueur de la table garde le sien.
+          </p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {(
+              [
+                ["virtual", "Dés virtuels", "Campfire lance pour vous", Dices],
+                ["physical", "Dés physiques", "Vous saisissez votre résultat", Hand],
+              ] as [DiceMode, string, string, typeof Dices][]
+            ).map(([value, label, hint, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={diceMode === value}
+                onClick={() => setDiceMode(value)}
+                className={`flex flex-col gap-1 rounded-2xl border p-3 text-left transition-colors ${
+                  diceMode === value
+                    ? "border-rpg bg-rpg/10"
+                    : "border-rpg/25 bg-card"
+                }`}
+              >
+                <Icon className="h-5 w-5 text-rpg" />
+                <span className="font-display text-sm tracking-wide text-foreground">{label}</span>
+                <span className="text-[11px] text-muted-foreground">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {info && <p className="text-sm text-rpg">{info}</p>}
