@@ -31,7 +31,7 @@ function CreateCampaignPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [world, setWorld] = useState("");
-  const [description, setDescription] = useState("");
+  const [inspiration, setInspiration] = useState("");
   const [campaignType, setCampaignType] = useState<string>(CAMPAIGN_TYPES[0]);
   const [universe, setUniverse] = useState("");
   const [gmPlays, setGmPlays] = useState(false);
@@ -55,10 +55,8 @@ function CreateCampaignPage() {
         .insert({
           owner_id: userId,
           name: name.trim(),
-          description:
-            [description.trim(), universe.trim() ? `Univers : ${universe.trim()}` : ""]
-              .filter(Boolean)
-              .join("\n\n") || null,
+          description: universe.trim() || null,
+          inspiration: inspiration.trim() || null,
           genre: [campaignType, world.trim()].filter(Boolean).join(" — "),
           gm_plays: gmPlays,
           status: "waiting",
@@ -227,14 +225,18 @@ function CreateCampaignPage() {
 
         <label className="flex flex-col gap-2">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Description courte (optionnel)
+            Inspiration (facultatif)
           </span>
           <textarea
             rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={inspiration}
+            onChange={(e) => setInspiration(e.target.value)}
             className="rpg-input resize-none"
+            placeholder="Quelles œuvres, univers ou ambiances inspirent cette campagne ? Ex. Final Fantasy, One Piece, Dragon Quest..."
           />
+          <span className="text-[11px] text-muted-foreground">
+            Ces références servent à orienter l'ambiance et le style de l'univers. La description reste prioritaire.
+          </span>
         </label>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
