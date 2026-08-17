@@ -247,6 +247,19 @@ function PlayPage() {
   const myTurn = canPlayerAct(turn, userId);
   const canAct = myTurn || gmView;
 
+  /**
+   * Persiste l'état de combat proposé par le MJ IA.
+   * L'appareil qui reçoit la scène écrit ; les autres reçoivent en temps réel.
+   */
+  async function persistCombat(scene: SceneResponse | null) {
+    try {
+      await syncCombat({ data: { campaignId: id, block: scene?.combat ?? null } });
+    } catch {
+      // Un échec de synchronisation du combat n'interrompt jamais la partie.
+    }
+    queryClient.invalidateQueries({ queryKey: ["combat", id] });
+  }
+
   /** Lance (ou relance) la scène d'introduction. */
   async function startIntro() {
     const campaign = data?.campaign;
@@ -274,7 +287,10 @@ function PlayPage() {
     });
     setAiResult(result);
     if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
-    else await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
+    else {
+      await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
+      await persistCombat(result.data as SceneResponse | null);
+    }
     queryClient.invalidateQueries({ queryKey: ["play", id] });
     setBusy(false);
   }
@@ -296,6 +312,8 @@ function PlayPage() {
     setBusy(true);
     await supabase.from("messages").delete().eq("campaign_id", id);
     await supabase.from("campaign_memory").delete().eq("campaign_id", id);
+    await supabase.from("combats").delete().eq("campaign_id", id);
+    await queryClient.invalidateQueries({ queryKey: ["combat", id] });
     await queryClient.invalidateQueries({ queryKey: ["play", id] });
     setAiResult(null);
     setBusy(false);
@@ -316,8 +334,8 @@ function PlayPage() {
       campaign_id: id,
       user_id: userId,
       role: "player",
-      content: roll
-        ? `${value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${
+      content: (target ? `${value} — cible : ${target.name}` : value) && roll
+        ? `${target ? `${value} — cible : ${target.name}` : value}\n(Jet ${roll.formula} : ${roll.total} vs ${roll.threshold} — ${
             roll.critical === "success"
               ? "réussite critique"
               : roll.critical === "failure"
@@ -342,6 +360,24 @@ function PlayPage() {
         text: value,
         user_id: userId,
         character: mySheet.name || null,
+        level: mySheet.level,
+        ...(target
+          ? { target: { name: target.name, level: target.level, status: target.status_label } }
+          : {}),
+        ...(combat
+          ? {
+              combat: {
+                round: combat.round,
+                enemies: enemies.map((e) => ({
+                  name: e.name,
+                  level: e.level,
+                  hp: e.hp,
+                  max_hp: e.max_hp,
+                  status: e.status_label,
+                })),
+              },
+            }
+          : {}),
         ...(roll
           ? {
               roll: {
@@ -359,6 +395,7 @@ function PlayPage() {
     setAiResult(result);
     if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
     const scene = result.data as SceneResponse | null;
+    await persistCombat(scene);
     if (scene?.dice_request?.formula) {
       setPendingAction(value);
       setDice(scene.dice_request);
@@ -569,6 +606,14 @@ function PlayPage() {
 
       {/* Barre inférieure : actions et dés */}
       <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-rpg/20 bg-background/95 px-4 py-3 backdrop-blur">
+        {combat && (
+          <CombatBanner
+            round={combat.round}
+            activeName={
+              turn.activePlayers[0] ? (names.get(turn.activePlayers[0]) ?? null) : null
+            }
+          />
+        )}
         <TurnBanner turn={turn} userId={gmView ? null : userId} names={names} />
         {gmView && (
           <div className="grid grid-cols-2 gap-2">
