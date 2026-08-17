@@ -16,6 +16,7 @@ import { AmbianceBar } from "@/components/game/ambiance-bar";
 import { GameMenus } from "@/components/game/game-menus";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
+import { useDiceMode } from "@/lib/game/use-dice-mode";
 import { TurnBanner, canPlayerAct, sequentialTurn, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
@@ -58,6 +59,9 @@ function PlayPage() {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
+  // Mode de lancer choisi par CE joueur dans ses paramètres.
+  const diceMode = useDiceMode();
+
   const gameQ = useQuery({
     queryKey: ["play", id],
     queryFn: async () => {
@@ -65,7 +69,7 @@ function PlayPage() {
         await Promise.all([
           supabase
             .from("campaigns")
-            .select("id, name, genre, description, gm_plays, owner_id, status")
+            .select("id, name, genre, description, inspiration, gm_plays, owner_id, status")
             .eq("id", id)
             .maybeSingle(),
           supabase
@@ -280,6 +284,7 @@ function PlayPage() {
         name: campaign.name,
         type: campaign.genre,
         universe: campaign.description,
+        inspiration: campaign.inspiration,
         gmPlays: campaign.gm_plays,
       },
       characters,
@@ -359,6 +364,19 @@ function PlayPage() {
     const result = await AIService.playTurn({
       campaignId: id,
       roster,
+      // Le seed (dont l'inspiration du MJ) accompagne CHAQUE tour, pas seulement l'ouverture.
+      ...(data?.campaign
+        ? {
+            seed: {
+              id,
+              name: data.campaign.name,
+              type: data.campaign.genre,
+              universe: data.campaign.description,
+              inspiration: data.campaign.inspiration,
+              gmPlays: data.campaign.gm_plays,
+            },
+          }
+        : {}),
       intent: {
         text: value,
         user_id: userId,
@@ -696,6 +714,8 @@ function PlayPage() {
       {dice && (
         <DiceRollerDialog
           request={dice}
+          mode={diceMode}
+          campaignId={id}
           onCancel={() => {
             setDice(null);
             setPendingAction(null);

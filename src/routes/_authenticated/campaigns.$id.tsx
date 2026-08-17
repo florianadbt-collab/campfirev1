@@ -15,7 +15,7 @@ function campaignQuery(id: string) {
     queryFn: async () => {
       const { data: campaign, error: cErr } = await supabase
         .from("campaigns")
-        .select("id, name, description, genre, status, invite_code, owner_id, gm_plays")
+        .select("id, name, description, inspiration, genre, status, invite_code, owner_id, gm_plays")
         .eq("id", id)
         .maybeSingle();
       if (cErr) throw cErr;
@@ -70,6 +70,8 @@ function CampaignPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [joinUrl, setJoinUrl] = useState("");
+  const [inspiration, setInspiration] = useState(data.campaign.inspiration ?? "");
+  const [savingInspiration, setSavingInspiration] = useState<"idle" | "saving" | "saved">("idle");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -168,6 +170,7 @@ function CampaignPage() {
         name: data.campaign.name,
         type: data.campaign.genre,
         universe: data.campaign.description,
+        inspiration: data.campaign.inspiration,
         gmPlays: data.campaign.gm_plays,
       },
       characters: characters ?? [],
@@ -228,6 +231,53 @@ function CampaignPage() {
         )}
         {data.campaign.description && (
           <p className="text-sm text-muted-foreground">{data.campaign.description}</p>
+        )}
+
+        {isOwner ? (
+          <label className="flex flex-col gap-2 rounded-2xl border border-rpg/25 bg-card p-4">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Inspiration (facultatif)
+            </span>
+            <textarea
+              rows={3}
+              value={inspiration}
+              onChange={(e) => {
+                setInspiration(e.target.value);
+                setSavingInspiration("idle");
+              }}
+              className="rpg-input resize-none"
+              placeholder="Quelles œuvres, univers ou ambiances inspirent cette campagne ? Ex. Final Fantasy, One Piece, Dragon Quest..."
+            />
+            <span className="text-[11px] text-muted-foreground">
+              Ces références servent à orienter l'ambiance et le style de l'univers.
+            </span>
+            <button
+              type="button"
+              disabled={savingInspiration === "saving"}
+              onClick={async () => {
+                setSavingInspiration("saving");
+                await supabase
+                  .from("campaigns")
+                  .update({ inspiration: inspiration.trim() || null })
+                  .eq("id", id);
+                await queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                setSavingInspiration("saved");
+              }}
+              className="self-start rounded-xl border border-rpg/40 bg-rpg/10 px-3 py-1.5 text-[11px] text-rpg disabled:opacity-50"
+            >
+              {savingInspiration === "saving"
+                ? "..."
+                : savingInspiration === "saved"
+                  ? "Inspiration enregistrée"
+                  : "Enregistrer l'inspiration"}
+            </button>
+          </label>
+        ) : (
+          data.campaign.inspiration && (
+            <p className="text-xs text-muted-foreground">
+              Inspirations : {data.campaign.inspiration}
+            </p>
+          )
         )}
 
         {isOwner && (

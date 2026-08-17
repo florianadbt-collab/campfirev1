@@ -55,6 +55,7 @@ export const AIService = {
       campaignId: string;
       intent: import("./types").Json;
       roster?: { id: string; name: string; role: string }[];
+      seed?: CampaignSeed;
     },
     o: Options = {},
   ) =>
@@ -62,7 +63,11 @@ export const AIService = {
       task: "playTurn",
       campaignId: args.campaignId,
       payload: { roster: args.roster ?? [] },
-      context: { playerIntent: args.intent, ...o.context },
+      context: {
+        playerIntent: args.intent,
+        ...(args.seed ? { campaignSeed: args.seed } : {}),
+        ...o.context,
+      },
       persist: true,
       ...o,
     }),

@@ -94,6 +94,7 @@ export type Database = {
           genre: string | null
           gm_plays: boolean
           id: string
+          inspiration: string | null
           invite_code: string
           name: string
           owner_id: string
@@ -106,6 +107,7 @@ export type Database = {
           genre?: string | null
           gm_plays?: boolean
           id?: string
+          inspiration?: string | null
           invite_code: string
           name: string
           owner_id: string
@@ -118,6 +120,7 @@ export type Database = {
           genre?: string | null
           gm_plays?: boolean
           id?: string
+          inspiration?: string | null
           invite_code?: string
           name?: string
           owner_id?: string
@@ -432,6 +435,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          dice_mode: string
           id: string
           updated_at: string
           username: string
@@ -439,6 +443,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          dice_mode?: string
           id: string
           updated_at?: string
           username: string
@@ -446,6 +451,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          dice_mode?: string
           id?: string
           updated_at?: string
           username?: string
