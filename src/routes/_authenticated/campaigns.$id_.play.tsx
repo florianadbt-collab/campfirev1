@@ -328,6 +328,9 @@ function PlayPage() {
     setError(null);
     setIntent("");
 
+    // La cible choisie est jointe à l'action, pour tous les joueurs et pour le MJ IA.
+    const label = target ? `${value} — cible : ${target.name}` : value;
+
     const { error: insertError } = silent
       ? { error: null }
       : await supabase.from("messages").insert({
