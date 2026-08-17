@@ -545,6 +545,7 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
   }
 
   if (req.task === "playTurn") await attachHistory(req);
+  if (req.task === "playTurn" || req.task === "startCampaign") await attachWorld(req);
   const prompt = promptFor(req);
 
   try {
@@ -553,6 +554,7 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
     const data = (isScene ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
+    if (isScene && req.campaignId) await saveWorld(req.campaignId, data);
 
     return {
       ok: true,
@@ -610,6 +612,41 @@ async function attachHistory(req: AIRequest) {
 }
 
 /** Persistance de la réponse IA dans Supabase — n'interrompt jamais la campagne. */
+
+/** Charge la mémoire du monde : ce que la campagne a déjà vécu. */
+async function attachWorld(req: AIRequest) {
+  if (!req.campaignId) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { readWorld, worldContextFrom } = await import("@/lib/world/world.server");
+    const snap = await readWorld(supabaseAdmin, req.campaignId);
+    const world = worldContextFrom(snap);
+    req.context = {
+      ...(req.context ?? {}),
+      canonicalWorldState: world.canonicalWorldState,
+      npcRegistry: world.npcRegistry,
+      factionRegistry: world.factionRegistry,
+      secretKnowledge: world.secretKnowledge,
+      activeClocks: world.worldTimeline,
+    };
+  } catch (e) {
+    console.error("[gemini-engine] world context failed:", (e as Error).message);
+  }
+}
+
+/** Enregistre les conséquences de la scène — jamais bloquant pour la partie. */
+async function saveWorld(campaignId: string, data: unknown) {
+  const update = (data as SceneResponse | null)?.world_update;
+  if (!update) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { applyWorldUpdate } = await import("@/lib/world/world.server");
+    await applyWorldUpdate(supabaseAdmin, campaignId, update);
+  } catch (e) {
+    console.error("[gemini-engine] world update failed:", (e as Error).message);
+  }
+}
+
 async function persistScene(req: AIRequest, data: unknown) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
