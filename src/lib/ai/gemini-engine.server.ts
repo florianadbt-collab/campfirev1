@@ -8,6 +8,8 @@ import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 /** API Gemini Developer (Google AI Studio) — clé du projet du propriétaire. */
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODEL = "gemini-flash-latest";
+/** Modèles essayés dans l'ordre : le premier sain répond. */
+const MODEL_CHAIN = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
 type GeminiPart =
@@ -353,20 +355,53 @@ function extractJson(raw: string): unknown {
 
 type EngineError = Error & { code?: string; debug?: AIDebugInfo };
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Délais entre tentatives (ms) — court, puis plus long. */
+const RETRY_DELAYS = [1500, 4000];
+
 async function callGemini(
   prompt: string,
   task: AITask,
   content: unknown = prompt,
 ): Promise<{ value: unknown; debug: AIDebugInfo }> {
   const apiKey = process.env["GEMINI_API_KEY"];
-  const startedAt = Date.now();
   if (!apiKey) {
     const err: EngineError = new Error("Service IA non configuré côté serveur.");
     err.code = "ai_unavailable";
     throw err;
   }
 
-  const response = await fetch(geminiUrl(MODEL, apiKey), {
+  let lastError: EngineError | null = null;
+
+  for (const model of MODEL_CHAIN) {
+    for (let attempt = 0; attempt < RETRY_DELAYS.length + 1; attempt++) {
+      try {
+        return await callOnce(model, apiKey, prompt, task, content);
+      } catch (e) {
+        const err = e as EngineError;
+        lastError = err;
+        // Erreurs définitives : inutile d'insister.
+        if (err.code === "ai_unauthorized" || err.code === "ai_bad_request") throw err;
+        if (err.code === "ai_bad_json") throw err;
+        const delay = RETRY_DELAYS[attempt];
+        if (delay === undefined) break; // on passe au modèle suivant
+        await sleep(delay);
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Service IA indisponible.");
+}
+
+async function callOnce(
+  model: string,
+  apiKey: string,
+  prompt: string,
+  task: AITask,
+  content: unknown,
+): Promise<{ value: unknown; debug: AIDebugInfo }> {
+  const startedAt = Date.now();
+  const response = await fetch(geminiUrl(model, apiKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -380,21 +415,25 @@ async function callGemini(
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
-    console.error(`[gemini-engine] ${task} failed [${response.status}]: ${bodyText}`);
+    console.error(`[gemini-engine] ${task} (${model}) failed [${response.status}]`);
     const err: EngineError = new Error(
       response.status === 429
         ? "Le MJ IA est momentanément saturé. Réessayez dans quelques instants."
         : response.status === 401 || response.status === 403
           ? "Clé Gemini invalide ou sans accès à ce modèle."
-          : `Service IA indisponible (${response.status}).`,
+          : response.status === 503
+            ? "Le MJ IA est temporairement surchargé côté Google. Réessayez dans quelques secondes."
+            : `Service IA indisponible (${response.status}).`,
     );
     err.code =
       response.status === 429
         ? "ai_rate_limited"
         : response.status === 401 || response.status === 403
           ? "ai_unauthorized"
-          : "ai_unavailable";
-    err.debug = { task, model: MODEL, prompt, raw: bodyText, durationMs, error: `HTTP ${response.status}` };
+          : response.status === 400
+            ? "ai_bad_request"
+            : "ai_unavailable";
+    err.debug = { task, model, prompt, raw: bodyText, durationMs, error: `HTTP ${response.status}` };
     throw err;
   }
 
@@ -404,7 +443,7 @@ async function callGemini(
   const raw = (json.candidates?.[0]?.content?.parts ?? [])
     .map((p) => p.text ?? "")
     .join("");
-  const debug: AIDebugInfo = { task, model: MODEL, prompt, raw, durationMs };
+  const debug: AIDebugInfo = { task, model, prompt, raw, durationMs };
 
   try {
     return { value: extractJson(raw), debug };
