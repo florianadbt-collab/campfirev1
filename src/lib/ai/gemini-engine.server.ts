@@ -188,6 +188,7 @@ export function buildPrompt(req: AIRequest): string {
       return (
         [
           "Poursuis la partie.",
+          ...campaignBrief(req),
           `Joueurs de la table (utilise ces identifiants) : ${JSON.stringify(roster)}`,
           advance
             ? "Le MJ humain demande ADVANCE_SCENE : laisse simplement la scène évoluer naturellement, sans forcer d'événement majeur."

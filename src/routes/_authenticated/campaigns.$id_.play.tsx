@@ -364,6 +364,19 @@ function PlayPage() {
     const result = await AIService.playTurn({
       campaignId: id,
       roster,
+      // Le seed (dont l'inspiration du MJ) accompagne CHAQUE tour, pas seulement l'ouverture.
+      ...(campaign
+        ? {
+            seed: {
+              id,
+              name: campaign.name,
+              type: campaign.genre,
+              universe: campaign.description,
+              inspiration: campaign.inspiration,
+              gmPlays: campaign.gm_plays,
+            },
+          }
+        : {}),
       intent: {
         text: value,
         user_id: userId,
