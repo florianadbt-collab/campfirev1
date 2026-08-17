@@ -168,6 +168,7 @@ export function buildPrompt(req: AIRequest): string {
           `Joueurs de la table (utilise ces identifiants) : ${JSON.stringify(p["roster"] ?? [])}`,
           `Type de campagne : ${seed?.type ?? "Libre"}`,
           `Description de l'univers : ${seed?.universe ?? "Non précisée"}`,
+          ...inspirationLines(seed),
           `Le MJ participe aussi comme joueur : ${seed?.gmPlays ? "oui" : "non"}`,
           `Personnages créés : ${characters.length ? JSON.stringify(characters) : "aucun pour l'instant"}`,
           "",
@@ -216,12 +217,30 @@ export function buildPrompt(req: AIRequest): string {
   }
 }
 
+/**
+ * Bloc « inspirations » : références créatives du MJ.
+ * Ce ne sont JAMAIS des œuvres à copier, seulement une direction artistique.
+ */
+function inspirationLines(seed: { inspiration?: string | null } | undefined): string[] {
+  const value = seed?.inspiration?.trim();
+  if (!value) return [];
+  return [
+    `Inspirations citées par le MJ : ${value}`,
+    "Ces inspirations sont des RÉFÉRENCES CRÉATIVES, pas des œuvres à copier :",
+    "- n'utilise aucun nom propre, personnage, lieu ou marque venant de ces œuvres ;",
+    "- fusionne intelligemment leurs influences (ambiance, ton, style du monde, factions,",
+    "  types de conflits, créatures, technologie, magie, rythme, thèmes) en un univers original et cohérent ;",
+    "- la description du MJ reste PRIORITAIRE : l'inspiration ne fait que l'enrichir et l'orienter.",
+  ];
+}
+
 function campaignBrief(req: AIRequest): string[] {
   const seed = req.context?.campaignSeed;
   return [
     `Campagne : ${seed?.name ?? "Sans nom"}`,
     `Type / ton : ${seed?.type ?? "Libre"}`,
     `Univers : ${seed?.universe ?? "Non précisé"}`,
+    ...inspirationLines(seed),
   ];
 }
 
