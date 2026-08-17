@@ -16,35 +16,109 @@ export type Database = {
     Tables: {
       campaign_memory: {
         Row: {
+          campaign_day: number
           campaign_id: string
           content: string
           created_at: string
           id: string
+          importance: string
           kind: string
           metadata: Json
           updated_at: string
+          user_id: string | null
+          visibility: string
         }
         Insert: {
+          campaign_day?: number
           campaign_id: string
           content: string
           created_at?: string
           id?: string
+          importance?: string
           kind?: string
           metadata?: Json
           updated_at?: string
+          user_id?: string | null
+          visibility?: string
         }
         Update: {
+          campaign_day?: number
           campaign_id?: string
           content?: string
           created_at?: string
           id?: string
+          importance?: string
           kind?: string
           metadata?: Json
           updated_at?: string
+          user_id?: string | null
+          visibility?: string
         }
         Relationships: [
           {
             foreignKeyName: "campaign_memory_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_npcs: {
+        Row: {
+          appearance: string
+          campaign_id: string
+          created_at: string
+          faction: string
+          first_seen_day: number
+          id: string
+          is_alive: boolean
+          last_seen_day: number
+          location: string
+          name: string
+          personality: string
+          role_label: string
+          speech_style: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appearance?: string
+          campaign_id: string
+          created_at?: string
+          faction?: string
+          first_seen_day?: number
+          id?: string
+          is_alive?: boolean
+          last_seen_day?: number
+          location?: string
+          name: string
+          personality?: string
+          role_label?: string
+          speech_style?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appearance?: string
+          campaign_id?: string
+          created_at?: string
+          faction?: string
+          first_seen_day?: number
+          id?: string
+          is_alive?: boolean
+          last_seen_day?: number
+          location?: string
+          name?: string
+          personality?: string
+          role_label?: string
+          speech_style?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_npcs_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
@@ -100,6 +174,7 @@ export type Database = {
           owner_id: string
           status: string
           updated_at: string
+          world_state: Json
         }
         Insert: {
           created_at?: string
@@ -113,6 +188,7 @@ export type Database = {
           owner_id: string
           status?: string
           updated_at?: string
+          world_state?: Json
         }
         Update: {
           created_at?: string
@@ -126,8 +202,50 @@ export type Database = {
           owner_id?: string
           status?: string
           updated_at?: string
+          world_state?: Json
         }
         Relationships: []
+      }
+      character_conditions: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          severity: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          severity?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          severity?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_conditions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       characters: {
         Row: {
@@ -427,6 +545,66 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      npc_relations: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          hostility: number
+          id: string
+          last_event: string
+          npc_id: string
+          opinion: string
+          stance: string
+          suspicion: number
+          trust: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          hostility?: number
+          id?: string
+          last_event?: string
+          npc_id: string
+          opinion?: string
+          stance?: string
+          suspicion?: number
+          trust?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          hostility?: number
+          id?: string
+          last_event?: string
+          npc_id?: string
+          opinion?: string
+          stance?: string
+          suspicion?: number
+          trust?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_relations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "npc_relations_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_npcs"
             referencedColumns: ["id"]
           },
         ]
