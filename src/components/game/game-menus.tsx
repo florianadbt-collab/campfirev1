@@ -32,6 +32,8 @@ import { GmTools } from "@/components/game/gm-tools";
 import type { Ambiance } from "@/components/game/ambiance-bar";
 import type { CharacterSheet } from "@/lib/character-sheet";
 import type { SceneResponse } from "@/lib/ai/types";
+import { useWorld } from "@/lib/world/use-world";
+import { memoryTitle } from "@/lib/world/world";
 
 type MenuKey =
   | "perso"
@@ -57,9 +59,9 @@ const ENTRIES: Entry[] = [
   { key: "sorts", label: "Livre de sorts", icon: Wand2 },
   { key: "quetes", label: "Journal des quêtes", icon: Target },
   { key: "journal", label: "Journal", icon: BookOpen },
-  { key: "carte", label: "Carte", icon: MapIcon, gmOnly: true },
-  { key: "codex", label: "Codex", icon: Library, gmOnly: true },
-  { key: "relations", label: "Relations", icon: Handshake, gmOnly: true },
+  { key: "carte", label: "Carte", icon: MapIcon },
+  { key: "codex", label: "Codex", icon: Library },
+  { key: "relations", label: "Relations", icon: Handshake },
   { key: "mj", label: "🎭 Outils MJ", icon: Theater, gmOnly: true },
   { key: "parametres", label: "Paramètres", icon: Settings },
 ];
@@ -90,31 +92,48 @@ export function GameMenus({
   const [open, setOpen] = useState<MenuKey | null>(null);
 
   const entries = ENTRIES.filter((e) => isGm || !e.gmOnly);
+  const { world } = useWorld(campaignId);
+  const memoryOf = (kind: string) => world.memory.filter((m) => m.kind === kind);
 
+  /** Les lieux connus viennent de la mémoire du monde, pas des scènes affichées. */
   const locations = useMemo(() => {
     const seen = new Map<string, string>();
     scenes.forEach((s) => {
       if (s.location) seen.set(s.location, s.scene_title ?? "");
     });
+    world.memory
+      .filter((m) => m.kind === "location")
+      .forEach((m) => seen.set(memoryTitle(m), m.content));
     return [...seen].map(([name, title]) => ({ id: name, title: name, text: title }));
-  }, [scenes]);
+  }, [scenes, world.memory]);
 
+  /** Relations : ce que les PNJ rencontrés pensent du groupe. */
   const relations = useMemo(() => {
-    const count = new Map<string, number>();
-    scenes.forEach((s) =>
-      (s.dialogues ?? []).forEach((d) => count.set(d.speaker, (count.get(d.speaker) ?? 0) + 1)),
-    );
-    return [...count].map(([name, n]) => ({
-      id: name,
-      title: name,
-      text: `${n} échange${n > 1 ? "s" : ""} avec le groupe`,
-      badge: n > 2 ? "Proche" : "Connu",
-    }));
-  }, [scenes]);
+    return world.npcs.map((n) => {
+      const rel = world.relations.filter((r) => r.npc_id === n.id);
+      const stance = rel.find((r) => r.user_id === null)?.stance ?? rel[0]?.stance ?? "";
+      return {
+        id: n.id,
+        title: n.name,
+        text:
+          [n.role_label, n.faction, n.status].filter(Boolean).join(" · ") ||
+          "Rencontré au fil de l'aventure",
+        badge: !n.is_alive ? "Mort" : isGm && stance ? stance : `Vu au jour ${n.last_seen_day}`,
+      };
+    });
+  }, [world.npcs, world.relations, isGm]);
 
+  /** Quêtes suivies dans la mémoire du monde, avec repli sur les scènes. */
   const quests = useMemo(
-    () =>
-      scenes
+    () => {
+      const tracked = memoryOf("quest").map((m) => ({
+        id: m.id,
+        title: memoryTitle(m),
+        text: m.content,
+        badge: String(m.metadata?.["status"] ?? "ouverte"),
+      }));
+      if (tracked.length) return tracked;
+      return scenes
         .filter((s) => s.scene_title)
         .slice(-6)
         .map((s, i, arr) => ({
@@ -123,9 +142,31 @@ export function GameMenus({
           text: s.narration ? `${s.narration.slice(0, 110)}…` : "",
           badge: i === arr.length - 1 ? "En cours" : "Terminée",
         }))
-        .reverse(),
-    [scenes],
+        .reverse();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scenes, world.memory],
   );
+
+  /** Codex : faits marquants, factions et rumeurs déjà connus. */
+  const codex = useMemo(() => {
+    const rows = world.memory.filter((m) =>
+      ["event", "world_event", "faction"].includes(m.kind),
+    );
+    return rows.slice(0, 20).map((m) => ({
+      id: m.id,
+      title:
+        m.kind === "faction"
+          ? memoryTitle(m)
+          : m.importance === "major"
+            ? `Jour ${m.campaign_day} — fait marquant`
+            : `Jour ${m.campaign_day}`,
+      text: m.content,
+      badge: m.kind === "world_event" ? "Ailleurs" : m.kind === "faction" ? "Faction" : undefined,
+    }));
+  }, [world.memory]);
+
+  const myConditions = world.conditions;
 
   const spells = sheet.abilities.filter((a) => SPELL_RE.test(a));
   const skills = sheet.abilities.filter((a) => !SPELL_RE.test(a));
@@ -239,6 +280,20 @@ export function GameMenus({
                     </div>
                   </div>
                   <StatsPanel attributes={sheet.attributes} level={sheet.level} />
+                  {myConditions.length > 0 && (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-3">
+                      <p className="pb-1.5 font-display text-xs uppercase tracking-wider text-destructive">
+                        Blessures et séquelles
+                      </p>
+                      <ul className="flex flex-col gap-1">
+                        {myConditions.map((c) => (
+                          <li key={c.id} className="text-xs text-foreground">
+                            {c.label} <span className="text-muted-foreground">({c.severity})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <Link
                     to="/campaigns/$id/character"
                     params={{ id: campaignId }}
@@ -292,6 +347,12 @@ export function GameMenus({
 
               {open === "carte" && (
                 <>
+                  <p className="text-xs text-muted-foreground">
+                    Jour {world.time.day}
+                    {world.time.time_of_day ? ` — ${world.time.time_of_day}` : ""}
+                    {world.time.weather ? ` · ${world.time.weather}` : ""}
+                    {world.time.location ? ` · ${world.time.location}` : ""}
+                  </p>
                   <SimpleList items={locations} empty="Aucun lieu exploré." />
                   <IllustrationSlot
                     kind="scene"
@@ -303,17 +364,7 @@ export function GameMenus({
 
               {open === "codex" && (
                 <>
-                  <SimpleList
-                    items={scenes
-                      .filter((s) => s.scene_mood)
-                      .slice(-8)
-                      .map((s, i) => ({
-                        id: `${s.scene_mood}-${i}`,
-                        title: s.scene_title ?? "Fragment",
-                        text: s.scene_mood,
-                      }))}
-                    empty="Le codex se remplira au fil de l'aventure."
-                  />
+                  <SimpleList items={codex} empty="Le codex se remplira au fil de l'aventure." />
                   <IllustrationSlot
                     kind="objet"
                     campaignId={campaignId}

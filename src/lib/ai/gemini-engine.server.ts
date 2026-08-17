@@ -113,6 +113,16 @@ const SCENE_JSON_CONTRACT =
   '"active_players":[string],"initiative":[string],"waiting_for_input":boolean,' +
   '"allow_parallel_inputs":boolean,"requires_mj_confirmation":boolean,' +
   '"read_aloud":string,"gm_notes":string,"gm_secrets":[string],"offscreen_events":[string],' +
+  '"world_update":{"time":{"day":number,"time_of_day":string,"weather":string,"location":string},' +
+  '"events":[{"summary":string,"importance":"major"|"minor","visibility":"public"|"gm"|"private","user_id":string}],' +
+  '"world_events":[{"summary":string,"importance":"major"|"minor","visibility":"public"|"gm"}],' +
+  '"npcs":[{"name":string,"role":string,"faction":string,"personality":string,"speech_style":string,"appearance":string,"status":string,"location":string,"alive":boolean,"secret":string}],' +
+  '"relations":[{"npc":string,"user_id":string,"trust":number,"suspicion":number,"hostility":number,"opinion":string,"reason":string}],' +
+  '"locations":[{"name":string,"summary":string,"visibility":"public"|"gm"|"private","user_id":string}],' +
+  '"factions":[{"name":string,"summary":string,"stance":string}],' +
+  '"quests":[{"name":string,"status":string,"summary":string}],' +
+  '"reputation":[{"scope":string,"summary":string,"user_id":string}],' +
+  '"conditions":[{"user_id":string,"label":string,"severity":"legere"|"serieuse"|"grave","healed":boolean}]},' +
   '"suggested_actions":[string,string,string]}';
 
 const SCENE_RULES = [
@@ -150,6 +160,32 @@ const SCENE_RULES = [
   "- gm_notes : ce que le MJ doit savoir (intentions des PNJ, pièges, rythme).",
   "- gm_secrets : 0 à 3 secrets non encore révélés.",
   "- offscreen_events : 0 à 3 événements qui se déroulent hors champ.",
+  "",
+  "Mémoire du monde (bloc world_update, obligatoire à chaque scène) :",
+  "- Le monde existe sans les joueurs. Il se souvient, il vieillit, il continue de tourner.",
+  "- Utilise le contexte fourni (état du monde, PNJ, relations, factions, quêtes) comme VÉRITÉ ÉTABLIE.",
+  "  Ne contredis jamais un fait déjà enregistré ; fais-le évoluer.",
+  "- time : fais avancer le temps de façon crédible (jamais en arrière). Change le moment de la journée et la météo quand c'est logique.",
+  "- events : 0 à 3 faits marquants de CETTE scène, en une phrase. visibility=public par défaut,",
+  "  gm si les joueurs l'ignorent, private (avec user_id) si un seul personnage l'a perçu.",
+  "- world_events : 0 à 2 choses qui se produisent ailleurs, sans les joueurs (une faction avance, une rumeur circule,",
+  "  un lieu change). Elles doivent finir par se voir plus tard.",
+  "- npcs : chaque PNJ qui apparaît. Garde EXACTEMENT le même nom, le même caractère et la même façon de parler",
+  "  d'une scène à l'autre. secret = ce que le PNJ cache (réservé au MJ). alive=false s'il meurt.",
+  "- relations : variations de -25 à +25 seulement, jamais de bascule brutale. user_id du joueur concerné,",
+  "  ou \"party\" pour le groupe. reason = la raison en une phrase. Un PNJ trahi devient méfiant, pas amnésique.",
+  "- locations, factions, quests, reputation : mets à jour ce qui a changé, réutilise les noms existants.",
+  "- conditions : blessures ou séquelles narratives durables d'un personnage (user_id obligatoire).",
+  "  healed=true quand la séquelle disparaît.",
+  "",
+  "Perception (très important) :",
+  "- Un personnage ne sait que ce qu'il a vu, entendu ou appris. Ne révèle jamais dans la narration",
+  "  un secret que les personnages ignorent : il reste dans gm_secrets ou en visibility gm.",
+  "- Adapte ce qui est remarqué au personnage : un guerrier repère une posture de combat, un voleur une serrure",
+  "  ou une bourse, un érudit un symbole, un soigneur une blessure. Décris ces détails pour le personnage concerné.",
+  "- Si des personnages n'ont pas la même information, dis-le côté MJ plutôt que de tout dévoiler à tous.",
+  "- Un temps long qui passe a des conséquences : blessures qui guérissent ou s'aggravent, PNJ qui bougent,",
+  "  plans ennemis qui avancent.",
 ].join("\n");
 
 export function buildPrompt(req: AIRequest): string {
@@ -449,6 +485,10 @@ function normalizeScene(value: unknown): SceneResponse {
     gm_notes: String(v["gm_notes"] ?? ""),
     gm_secrets: strList(v["gm_secrets"], 5),
     offscreen_events: strList(v["offscreen_events"], 5),
+    world_update:
+      v["world_update"] && typeof v["world_update"] === "object" && !Array.isArray(v["world_update"])
+        ? (v["world_update"] as Json)
+        : null,
   };
 }
 
@@ -505,6 +545,7 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
   }
 
   if (req.task === "playTurn") await attachHistory(req);
+  if (req.task === "playTurn" || req.task === "startCampaign") await attachWorld(req);
   const prompt = promptFor(req);
 
   try {
@@ -513,6 +554,7 @@ export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
     const data = (isScene ? normalizeScene(value) : value) as Json;
 
     if (req.persist && req.campaignId) await persistScene(req, data);
+    if (isScene && req.campaignId) await saveWorld(req.campaignId, data);
 
     return {
       ok: true,
@@ -570,6 +612,41 @@ async function attachHistory(req: AIRequest) {
 }
 
 /** Persistance de la réponse IA dans Supabase — n'interrompt jamais la campagne. */
+
+/** Charge la mémoire du monde : ce que la campagne a déjà vécu. */
+async function attachWorld(req: AIRequest) {
+  if (!req.campaignId) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { readWorld, worldContextFrom } = await import("@/lib/world/world.server");
+    const snap = await readWorld(supabaseAdmin, req.campaignId);
+    const world = worldContextFrom(snap);
+    req.context = {
+      ...(req.context ?? {}),
+      canonicalWorldState: world.canonicalWorldState,
+      npcRegistry: world.npcRegistry,
+      factionRegistry: world.factionRegistry,
+      secretKnowledge: world.secretKnowledge,
+      activeClocks: world.worldTimeline,
+    };
+  } catch (e) {
+    console.error("[gemini-engine] world context failed:", (e as Error).message);
+  }
+}
+
+/** Enregistre les conséquences de la scène — jamais bloquant pour la partie. */
+async function saveWorld(campaignId: string, data: unknown) {
+  const update = (data as SceneResponse | null)?.world_update;
+  if (!update) return;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { applyWorldUpdate } = await import("@/lib/world/world.server");
+    await applyWorldUpdate(supabaseAdmin, campaignId, update);
+  } catch (e) {
+    console.error("[gemini-engine] world update failed:", (e as Error).message);
+  }
+}
+
 async function persistScene(req: AIRequest, data: unknown) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

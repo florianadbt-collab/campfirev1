@@ -5,6 +5,8 @@ import { IllustrationSlot } from "@/components/game/illustration";
 import { PanelCard } from "@/components/game/panels";
 import type { Ambiance } from "@/components/game/ambiance-bar";
 import type { SceneResponse } from "@/lib/ai/types";
+import { useWorld } from "@/lib/world/use-world";
+import { memoryTitle } from "@/lib/world/world";
 
 function tensionLabel(t: number) {
   if (t >= 75) return "Critique";
@@ -29,6 +31,8 @@ export function GmTools({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const { world } = useWorld(campaignId);
+  const storedSecrets = world.memory.filter((m) => m.visibility === "gm").slice(0, 15);
 
   const last = scenes.at(-1);
   const secrets = last?.gm_secrets ?? [];
@@ -103,6 +107,74 @@ export function GmTools({
             {offscreen.map((s, i) => (
               <li key={i} className="rounded-lg border border-rpg/20 bg-secondary px-2 py-1.5 text-xs text-foreground">
                 {s}
+              </li>
+            ))}
+          </ul>
+        </PanelCard>
+      )}
+
+      <PanelCard title="Mémoire secrète du monde">
+        {storedSecrets.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Les secrets et coulisses s'accumuleront ici au fil des scènes.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {storedSecrets.map((m) => (
+              <li
+                key={m.id}
+                className="rounded-lg border border-rpg/20 bg-secondary px-2 py-1.5 text-xs text-foreground"
+              >
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Jour {m.campaign_day} · {memoryTitle(m) !== m.content ? memoryTitle(m) : m.kind}
+                </span>
+                <span className="block">{m.content}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PanelCard>
+
+      <PanelCard title="Dossier des PNJ">
+        {world.npcs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucun personnage non-joueur mémorisé.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {world.npcs.map((n) => (
+              <li key={n.id} className="rounded-lg border border-rpg/20 bg-secondary px-2 py-1.5">
+                <p className="font-display text-sm text-foreground">
+                  {n.name}
+                  {!n.is_alive && <span className="text-destructive"> · mort</span>}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {[n.role_label, n.faction, n.location].filter(Boolean).join(" · ") || "Rôle inconnu"}
+                </p>
+                {n.personality && <p className="text-[11px] text-muted-foreground">{n.personality}</p>}
+                <ul className="flex flex-wrap gap-1 pt-1">
+                  {world.relations
+                    .filter((r) => r.npc_id === n.id)
+                    .map((r) => (
+                      <li
+                        key={r.id}
+                        className="rounded-full border border-rpg/25 px-2 py-0.5 text-[10px] text-rpg"
+                        title={r.last_event}
+                      >
+                        {r.user_id ? "Joueur" : "Groupe"} : {r.stance}
+                      </li>
+                    ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PanelCard>
+
+      {world.conditions.length > 0 && (
+        <PanelCard title="Blessures en cours">
+          <ul className="flex flex-col gap-1">
+            {world.conditions.map((c) => (
+              <li key={c.id} className="text-xs text-foreground">
+                {c.label} <span className="text-muted-foreground">({c.severity})</span>
               </li>
             ))}
           </ul>
