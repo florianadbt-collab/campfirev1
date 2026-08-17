@@ -99,7 +99,7 @@ export type SceneResponse = {
   gm_secrets?: string[];
   offscreen_events?: string[];
   /** Conséquences persistantes de la scène sur le monde. */
-  world_update?: WorldUpdateBlock | null;
+  world_update?: Json | null;
 }
 
 /**
@@ -107,7 +107,6 @@ export type SceneResponse = {
  * Gemini propose, Campfire valide et enregistre.
  */
 export interface WorldUpdateBlock {
-  [key: string]: Json | undefined;
   time?: { day?: number; time_of_day?: string; weather?: string; location?: string };
   events?: { summary: string; importance?: "major" | "minor"; visibility?: "public" | "gm" | "private"; user_id?: string; tags?: string[] }[];
   /** Événements survenus hors de la présence des joueurs. */

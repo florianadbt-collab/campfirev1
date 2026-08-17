@@ -141,7 +141,7 @@ export function worldContextFrom(snap: WorldSnapshot) {
         class: c.class_profession,
         level: c.level,
       })),
-    } as Json,
+    } as unknown as Json,
     worldTimeline: [...publicMemory]
       .filter((m) => m.kind === "event" || m.kind === "world_event")
       .slice(-20)
@@ -150,13 +150,13 @@ export function worldContextFrom(snap: WorldSnapshot) {
         kind: m.kind,
         importance: m.importance,
         summary: m.content,
-      })) as Json,
+      })) as unknown as Json,
     npcRegistry: npcRegistry as unknown as Json,
     factionRegistry: byKind("faction").map((m) => ({
       name: m.metadata?.["name"] ?? "",
       stance: m.metadata?.["stance"] ?? "",
       note: m.content,
-    })) as Json,
+    })) as unknown as Json,
     secretKnowledge: snap.memory
       .filter((m) => m.visibility === "gm")
       .slice(-15)
@@ -164,7 +164,7 @@ export function worldContextFrom(snap: WorldSnapshot) {
         kind: m.kind,
         about: m.metadata?.["name"] ?? "",
         secret: m.content,
-      })) as Json,
+      })) as unknown as Json,
   };
 }
 
@@ -225,9 +225,9 @@ async function applyTime(
 }
 
 async function applyEvents(supabase: Client, campaignId: string, day: number, u: Row) {
-  const rows = [
-    ...arr(u["events"]).map((e) => ({ ...e, kind: "event" })),
-    ...arr(u["world_events"]).map((e) => ({ ...e, kind: "world_event" })),
+  const rows: Row[] = [
+    ...arr(u["events"]).map((e): Row => ({ ...e, kind: "event" })),
+    ...arr(u["world_events"]).map((e): Row => ({ ...e, kind: "world_event" })),
   ]
     .map((e) => ({
       campaign_id: campaignId,
