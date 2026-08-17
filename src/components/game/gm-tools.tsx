@@ -33,7 +33,6 @@ export function GmTools({
   const [notes, setNotes] = useState("");
   const { world } = useWorld(campaignId);
   const storedSecrets = world.memory.filter((m) => m.visibility === "gm").slice(0, 15);
-  const relationsByNpc = new Map(world.npcs.map((n) => [n.id, n]));
 
   const last = scenes.at(-1);
   const secrets = last?.gm_secrets ?? [];
