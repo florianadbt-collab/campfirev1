@@ -69,32 +69,44 @@ const SYSTEM_PROMPT =
   "La narration est l'essentiel : les dialogues restent rares et courts. " +
   "Tu réponds TOUJOURS avec un unique objet JSON valide, sans texte autour, sans balises markdown.";
 
-const MUSIC_MOODS = new Set([
-  "exploration", "village", "ville", "taverne", "voyage", "mystere", "tension", "enquete",
-  "combat", "combat_majeur", "boss", "victoire", "defaite", "tragedie", "repos",
-]);
-
-/** Commande musicale structurée produite par Gemini (interprétée par Campfire). */
-function parseMusicCommand(value: unknown): SceneResponse["music_command"] {
+/** Bloc de combat structuré produit par Gemini (appliqué par Campfire). */
+function parseCombat(value: unknown): SceneResponse["combat"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
-  const mood = String(v["mood"] ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  if (!MUSIC_MOODS.has(mood)) return null;
-  const action = String(v["action"] ?? "keep").toLowerCase();
+  const status = String(v["status"] ?? "").toLowerCase();
+  const enemies = Array.isArray(v["enemies"])
+    ? (v["enemies"] as unknown[])
+        .map((e) => {
+          const o = (e ?? {}) as Record<string, unknown>;
+          const maxHp = Math.max(1, Math.min(999, Number(o["max_hp"] ?? 10) || 10));
+          const hp = Math.max(0, Math.min(maxHp, Number(o["hp"] ?? maxHp)));
+          return {
+            name: String(o["name"] ?? "").trim(),
+            level: Math.max(1, Math.min(30, Number(o["level"] ?? 1) || 1)),
+            max_hp: maxHp,
+            hp,
+            status: String(o["status"] ?? "").trim(),
+          };
+        })
+        .filter((e) => e.name)
+        .slice(0, 8)
+    : [];
   return {
-    type: "music",
-    action: action === "change" || action === "stop" ? action : "keep",
-    mood,
-    genre: String(v["genre"] ?? ""),
-    intensity: Math.max(1, Math.min(5, Number(v["intensity"] ?? 2) || 2)),
-    search_query: String(v["search_query"] ?? ""),
+    active: v["active"] === undefined ? enemies.length > 0 : Boolean(v["active"]),
+    status: (COMBAT_STATUSES.has(status) ? status : "active") as NonNullable<
+      SceneResponse["combat"]
+    >["status"],
+    round: Math.max(1, Math.min(99, Number(v["round"] ?? 1) || 1)),
+    enemies,
   };
 }
 
+const COMBAT_STATUSES = new Set(["active", "victory", "defeat", "flight", "interrupted"]);
+
 const SCENE_JSON_CONTRACT =
   '{"scene_title":string,"narration":string,"scene_mood":string,"location":string,"world_time":string,' +
-  '"weather":string,"tension":number,"music_query":string,"image_prompt":string,' +
-  '"music_command":{"type":"music","action":"change"|"keep"|"stop","mood":string,"genre":string,"intensity":number,"search_query":string},' +
+  '"weather":string,"tension":number,"image_prompt":string,' +
+  '"combat":{"active":boolean,"status":"active"|"victory"|"defeat"|"flight"|"interrupted","round":number,"enemies":[{"name":string,"level":number,"max_hp":number,"hp":number,"status":string}]}|null,' +
   '"dialogues":[{"speaker":string,"line":string}],' +
   '"dice_request":{"formula":string,"threshold":number,"reason":string,"ability":string}|null,' +
   '"scene_state":"NARRATION"|"PLAYER_TURN"|"GROUP_CHOICE"|"COMBAT"|"DIALOGUE",' +
@@ -109,12 +121,7 @@ const SCENE_RULES = [
   "- dialogues : 0 à 2 répliques maximum, uniquement si un personnage parle vraiment. Sinon tableau vide.",
   "- tension : entier de 0 à 100.",
   "- location, world_time (ex: \"Jour 3 — 17h20\"), weather : toujours renseignés, en français.",
-  "- music_query et image_prompt en anglais.",
-  "- music_command : ambiance musicale. mood parmi exploration, village, ville, taverne, voyage, mystere,",
-  "  tension, enquete, combat, combat_majeur, boss, victoire, defaite, tragedie, repos.",
-  "  action = \"keep\" par défaut : ne demande \"change\" QUE lors d'une vraie rupture d'ambiance",
-  "  (exploration -> combat, combat -> boss, boss -> victoire). Jamais de changement à chaque réponse.",
-  "  intensity : entier 1 à 5. search_query en anglais.",
+  "- image_prompt en anglais.",
   "- suggested_actions : 3 ou 4 actions courtes, concrètes, à la 2e personne.",
   "  Si une action proposée nécessite un jet de dé, termine-la par la caractéristique et son modificateur entre parenthèses,",
   "  ex : \"Forcer la porte (Force, +2)\", \"Convaincre le garde (Charisme, -1)\", \"Sauter le fossé (Dextérité, aucun modificateur)\".",
@@ -130,6 +137,13 @@ const SCENE_RULES = [
   "- waiting_for_input : true si tu attends une action d'un joueur.",
   "- allow_parallel_inputs : true seulement en GROUP_CHOICE.",
   "- requires_mj_confirmation : true quand la scène peut avancer d'elle-même et que tu attends le feu vert du MJ.",
+  "",
+  "Combat (obligatoire dès qu'un affrontement est en cours) :",
+  "- combat : null hors combat. En combat, renvoie l'état complet et à jour.",
+  "- enemies : la liste COMPLÈTE des ennemis présents, avec name, level, max_hp, hp et status court",
+  "  (ex : \"En pleine forme\", \"Blessé\", \"À terre\"). Réutilise EXACTEMENT les mêmes noms d'un tour à l'autre.",
+  "- Quand le combat se termine, renvoie status victory, defeat, flight ou interrupted et active=false.",
+  "- Pendant un combat, scene_state doit valoir COMBAT.",
   "",
   "Bloc MJ (jamais montré aux joueurs) :",
   "- read_aloud : court texte que le MJ peut lire à voix haute aux joueurs.",
@@ -382,8 +396,7 @@ function normalizeScene(value: unknown): SceneResponse {
     scene_title: String(v["scene_title"] ?? "Ouverture"),
     narration: String(v["narration"] ?? ""),
     scene_mood: String(v["scene_mood"] ?? ""),
-    music_query: String(v["music_query"] ?? ""),
-    music_command: parseMusicCommand(v["music_command"]),
+    combat: parseCombat(v["combat"]),
     image_prompt: String(v["image_prompt"] ?? ""),
     suggested_actions: actions,
     location: String(v["location"] ?? ""),
@@ -445,34 +458,10 @@ async function generateImage(prompt: string): Promise<string | null> {
   return inline?.data ? `data:${inline.mimeType ?? "image/png"};base64,${inline.data}` : null;
 }
 
-/** Ambiances sonores libres de droits — remplacées par Spotify en V2. */
-const AMBIENCES: { key: string; url: string }[] = [
-  { key: "tavern", url: "https://cdn.pixabay.com/audio/2022/03/15/audio_c8c8a73467.mp3" },
-  { key: "forest", url: "https://cdn.pixabay.com/audio/2021/10/25/audio_65a3d1b1a3.mp3" },
-  { key: "battle", url: "https://cdn.pixabay.com/audio/2022/10/30/audio_347111d3b6.mp3" },
-];
-
-function pickAmbience(query: string): string {
-  const q = query.toLowerCase();
-  if (/(battle|combat|fight|danger|chase)/.test(q)) return AMBIENCES[2]!.url;
-  if (/(forest|wild|nature|travel|road|exploration)/.test(q)) return AMBIENCES[1]!.url;
-  return AMBIENCES[0]!.url;
-}
-
 /* --------------------------------------------------------------- entrypoint */
 
 export async function runGeminiEngine(req: AIRequest): Promise<AIResult> {
   const startedAt = Date.now();
-
-  if (req.task === "generateMusic") {
-    const query = String(req.payload?.["query"] ?? "dark fantasy ambient");
-    return {
-      ok: true,
-      task: req.task,
-      data: { music_url: pickAmbience(query), music_query: query } as Json,
-      durationMs: Date.now() - startedAt,
-    };
-  }
 
   if (IMAGE_TASKS.has(req.task)) {
     const basePrompt = String(req.payload?.["prompt"] ?? "").trim();
