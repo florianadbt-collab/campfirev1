@@ -54,6 +54,9 @@ function PlayPage() {
   const [targetId, setTargetId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
+  /** Dernière action IA échouée, rejouable telle quelle par le joueur. */
+  const retryRef = useRef<(() => void) | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -291,7 +294,11 @@ function PlayPage() {
       roster,
     });
     setAiResult(result);
-    if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+    if (!result.ok) {
+      setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+      retryRef.current = () => void startIntro();
+      setCanRetry(true);
+    }
     else {
       await supabase.from("campaigns").update({ status: "active" }).eq("id", id);
       await persistCombat(result.data as SceneResponse | null);
@@ -331,6 +338,7 @@ function PlayPage() {
     if (!value || !userId || busy) return;
     setBusy(true);
     setError(null);
+    setCanRetry(false);
     setIntent("");
 
     // La cible choisie est jointe à l'action, pour tous les joueurs et pour le MJ IA.
@@ -414,7 +422,12 @@ function PlayPage() {
       },
     });
     setAiResult(result);
-    if (!result.ok) setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+    if (!result.ok) {
+      setError(result.errorMessage ?? "Le MJ IA est indisponible.");
+      // On rejoue l'appel au MJ sans réécrire le message du joueur.
+      retryRef.current = () => void send(text, roll, true);
+      setCanRetry(true);
+    }
     const scene = result.data as SceneResponse | null;
     await persistCombat(scene);
     if (scene?.dice_request?.formula) {
@@ -602,9 +615,23 @@ function PlayPage() {
             </p>
           )}
           {error && (
-            <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </p>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <span>{error}</span>
+              {canRetry && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    setCanRetry(false);
+                    retryRef.current?.();
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg border border-destructive/50 px-2 py-1 text-xs font-medium disabled:opacity-50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Réessayer
+                </button>
+              )}
+            </div>
           )}
           <AIDebugPanel result={aiResult} />
           <div ref={endRef} />
