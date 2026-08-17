@@ -357,7 +357,7 @@ type EngineError = Error & { code?: string; debug?: AIDebugInfo };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Délais entre tentatives (ms) — court, puis plus long. */
-const RETRY_DELAYS = [1000, 3000, 7000];
+const RETRY_DELAYS = [1500, 4000];
 
 async function callGemini(
   prompt: string,
