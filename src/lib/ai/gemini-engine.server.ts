@@ -485,6 +485,10 @@ function normalizeScene(value: unknown): SceneResponse {
     gm_notes: String(v["gm_notes"] ?? ""),
     gm_secrets: strList(v["gm_secrets"], 5),
     offscreen_events: strList(v["offscreen_events"], 5),
+    world_update:
+      v["world_update"] && typeof v["world_update"] === "object" && !Array.isArray(v["world_update"])
+        ? (v["world_update"] as Json)
+        : null,
   };
 }
 
