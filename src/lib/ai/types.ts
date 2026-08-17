@@ -102,6 +102,7 @@ export type SceneResponse = {
 export type CombatStatus = "active" | "victory" | "defeat" | "flight" | "interrupted";
 
 export interface CombatEnemyBlock {
+  [key: string]: Json;
   name: string;
   level: number;
   max_hp: number;
@@ -110,6 +111,7 @@ export interface CombatEnemyBlock {
 }
 
 export interface CombatBlock {
+  [key: string]: Json;
   active: boolean;
   status: CombatStatus;
   round: number;
