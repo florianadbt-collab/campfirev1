@@ -16,7 +16,6 @@ import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/h
 import { Route as AuthenticatedCampaignsJoinRouteImport } from './routes/_authenticated/campaigns.join'
 import { Route as AuthenticatedCampaignsCreateRouteImport } from './routes/_authenticated/campaigns.create'
 import { Route as AuthenticatedCampaignsIdRouteImport } from './routes/_authenticated/campaigns.$id'
-import { Route as ApiPublicSpotifyCallbackRouteImport } from './routes/api/public/spotify/callback'
 import { Route as AuthenticatedCampaignsIdPlayRouteImport } from './routes/_authenticated/campaigns.$id_.play'
 import { Route as AuthenticatedCampaignsIdCharacterRouteImport } from './routes/_authenticated/campaigns.$id_.character'
 
@@ -57,12 +56,6 @@ const AuthenticatedCampaignsIdRoute =
     path: '/campaigns/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicSpotifyCallbackRoute =
-  ApiPublicSpotifyCallbackRouteImport.update({
-    id: '/api/public/spotify/callback',
-    path: '/api/public/spotify/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const AuthenticatedCampaignsIdPlayRoute =
   AuthenticatedCampaignsIdPlayRouteImport.update({
     id: '/campaigns/$id_/play',
@@ -85,7 +78,6 @@ export interface FileRoutesByFullPath {
   '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/campaigns/$id/character': typeof AuthenticatedCampaignsIdCharacterRoute
   '/campaigns/$id/play': typeof AuthenticatedCampaignsIdPlayRoute
-  '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -96,7 +88,6 @@ export interface FileRoutesByTo {
   '/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/campaigns/$id/character': typeof AuthenticatedCampaignsIdCharacterRoute
   '/campaigns/$id/play': typeof AuthenticatedCampaignsIdPlayRoute
-  '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -109,7 +100,6 @@ export interface FileRoutesById {
   '/_authenticated/campaigns/join': typeof AuthenticatedCampaignsJoinRoute
   '/_authenticated/campaigns/$id_/character': typeof AuthenticatedCampaignsIdCharacterRoute
   '/_authenticated/campaigns/$id_/play': typeof AuthenticatedCampaignsIdPlayRoute
-  '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -122,7 +112,6 @@ export interface FileRouteTypes {
     | '/campaigns/join'
     | '/campaigns/$id/character'
     | '/campaigns/$id/play'
-    | '/api/public/spotify/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,7 +122,6 @@ export interface FileRouteTypes {
     | '/campaigns/join'
     | '/campaigns/$id/character'
     | '/campaigns/$id/play'
-    | '/api/public/spotify/callback'
   id:
     | '__root__'
     | '/'
@@ -145,13 +133,11 @@ export interface FileRouteTypes {
     | '/_authenticated/campaigns/join'
     | '/_authenticated/campaigns/$id_/character'
     | '/_authenticated/campaigns/$id_/play'
-    | '/api/public/spotify/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  ApiPublicSpotifyCallbackRoute: typeof ApiPublicSpotifyCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -205,13 +191,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCampaignsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/spotify/callback': {
-      id: '/api/public/spotify/callback'
-      path: '/api/public/spotify/callback'
-      fullPath: '/api/public/spotify/callback'
-      preLoaderRoute: typeof ApiPublicSpotifyCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/campaigns/$id_/play': {
       id: '/_authenticated/campaigns/$id_/play'
       path: '/campaigns/$id/play'
@@ -256,7 +235,6 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  ApiPublicSpotifyCallbackRoute: ApiPublicSpotifyCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
