@@ -14,14 +14,13 @@ import {
 } from "@/components/game/panels";
 import { AmbianceBar } from "@/components/game/ambiance-bar";
 import { GameMenus } from "@/components/game/game-menus";
-import { MusicPlayer } from "@/components/game/music-player";
 import { IllustrationSlot } from "@/components/game/illustration";
 import { DiceRollerDialog, type DiceOutcome, type DiceRequest } from "@/components/game/dice-roller";
 import { TurnBanner, canPlayerAct, sequentialTurn, turnStateFrom } from "@/components/game/turn-banner";
 import { sheetFromRow, EMPTY_SHEET } from "@/lib/character-sheet";
 import type { AIResult, SceneResponse } from "@/lib/ai/types";
-import { spotifyAmbiance } from "@/lib/spotify/spotify.functions";
-import type { MusicCommand } from "@/lib/spotify/moods";
+import { CombatBanner, EnemyList } from "@/components/game/combat-panel";
+import { loadCombat, syncCombat } from "@/lib/combat/combat.functions";
 
 export const Route = createFileRoute("/_authenticated/campaigns/$id_/play")({
   head: () => ({
@@ -51,6 +50,7 @@ function PlayPage() {
   const [dice, setDice] = useState<DiceRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [gmMode, setGmMode] = useState(true);
+  const [targetId, setTargetId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
 
@@ -108,6 +108,16 @@ function PlayPage() {
         { event: "*", schema: "public", table: "campaigns", filter: `id=eq.${id}` },
         () => queryClient.invalidateQueries({ queryKey: ["play", id] }),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "combats", filter: `campaign_id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["combat", id] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "combat_enemies", filter: `campaign_id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["combat", id] }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -119,6 +129,7 @@ function PlayPage() {
     const refresh = () => {
       if (document.visibilityState === "visible") {
         queryClient.invalidateQueries({ queryKey: ["play", id] });
+        queryClient.invalidateQueries({ queryKey: ["combat", id] });
       }
     };
     window.addEventListener("focus", refresh);
@@ -133,6 +144,20 @@ function PlayPage() {
 
   const data = gameQ.data;
   const messages = data?.messages ?? [];
+
+  /** État de combat — le serveur reste la source de vérité. */
+  const combatQ = useQuery({
+    queryKey: ["combat", id],
+    queryFn: () => loadCombat({ data: { campaignId: id } }),
+  });
+  const combat = combatQ.data?.combat ?? null;
+  const enemies = useMemo(() => combatQ.data?.enemies ?? [], [combatQ.data]);
+  const target = enemies.find((e) => e.id === targetId) ?? null;
+
+  // La cible disparue (vaincue ou hors combat) est désélectionnée.
+  useEffect(() => {
+    if (targetId && !enemies.some((e) => e.id === targetId && !e.is_defeated)) setTargetId(null);
+  }, [enemies, targetId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -219,23 +244,6 @@ function PlayPage() {
     () => sequentialTurn(turnStateFrom(lastScene), turnOrder, actionsPlayed),
     [lastScene, turnOrder, actionsPlayed],
   );
-  /**
-   * Ambiance Spotify : seul l'appareil du MJ pilote la lecture.
-   * Une erreur Spotify n'interrompt jamais la partie.
-   */
-  const musicRef = useRef<string>("");
-  useEffect(() => {
-    if (!isGm) return;
-    const command = lastScene?.music_command as MusicCommand | undefined | null;
-    if (!command || command.action !== "change") return;
-    const key = `${command.mood}:${messages.length}`;
-    if (musicRef.current === command.mood) return;
-    musicRef.current = command.mood;
-    void spotifyAmbiance({ data: { command } })
-      .then((r) => console.info("[spotify] ambiance", key, r.message))
-      .catch(() => undefined);
-  }, [isGm, lastScene, messages.length]);
-
   const myTurn = canPlayerAct(turn, userId);
   const canAct = myTurn || gmView;
 
@@ -385,7 +393,6 @@ function PlayPage() {
           isGm={gmView}
           ambiance={ambiance}
           turns={messages.length}
-          {...(lastScene?.music_query ? { musicSuggestion: lastScene.music_query } : {})}
         />
         <div className="min-w-0">
           <h1 className="truncate font-display text-base tracking-wide text-foreground sm:text-lg">
@@ -461,10 +468,13 @@ function PlayPage() {
           <StatsPanel attributes={mySheet.attributes} level={mySheet.level} />
           <InventoryPanel items={mySheet.inventory} />
           <AbilitiesPanel items={mySheet.abilities} />
-          {gmView && (
-            <MusicPlayer
-              canControl
-              {...(lastScene?.music_query ? { suggestion: lastScene.music_query } : {})}
+          {combat && (
+            <EnemyList
+              enemies={enemies}
+              playerLevel={mySheet.level}
+              targetId={targetId}
+              onTarget={(eid) => setTargetId((cur) => (cur === eid ? null : eid))}
+              showExactHp={gmView}
             />
           )}
         </aside>
