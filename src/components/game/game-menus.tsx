@@ -280,6 +280,20 @@ export function GameMenus({
                     </div>
                   </div>
                   <StatsPanel attributes={sheet.attributes} level={sheet.level} />
+                  {myConditions.length > 0 && (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-3">
+                      <p className="pb-1.5 font-display text-xs uppercase tracking-wider text-destructive">
+                        Blessures et séquelles
+                      </p>
+                      <ul className="flex flex-col gap-1">
+                        {myConditions.map((c) => (
+                          <li key={c.id} className="text-xs text-foreground">
+                            {c.label} <span className="text-muted-foreground">({c.severity})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <Link
                     to="/campaigns/$id/character"
                     params={{ id: campaignId }}
@@ -333,6 +347,12 @@ export function GameMenus({
 
               {open === "carte" && (
                 <>
+                  <p className="text-xs text-muted-foreground">
+                    Jour {world.time.day}
+                    {world.time.time_of_day ? ` — ${world.time.time_of_day}` : ""}
+                    {world.time.weather ? ` · ${world.time.weather}` : ""}
+                    {world.time.location ? ` · ${world.time.location}` : ""}
+                  </p>
                   <SimpleList items={locations} empty="Aucun lieu exploré." />
                   <IllustrationSlot
                     kind="scene"
@@ -344,17 +364,7 @@ export function GameMenus({
 
               {open === "codex" && (
                 <>
-                  <SimpleList
-                    items={scenes
-                      .filter((s) => s.scene_mood)
-                      .slice(-8)
-                      .map((s, i) => ({
-                        id: `${s.scene_mood}-${i}`,
-                        title: s.scene_title ?? "Fragment",
-                        text: s.scene_mood,
-                      }))}
-                    empty="Le codex se remplira au fil de l'aventure."
-                  />
+                  <SimpleList items={codex} empty="Le codex se remplira au fil de l'aventure." />
                   <IllustrationSlot
                     kind="objet"
                     campaignId={campaignId}
