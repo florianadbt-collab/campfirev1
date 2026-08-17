@@ -9,7 +9,7 @@ import { SHEET_JSON_CONTRACT } from "@/lib/character-sheet";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODEL = "gemini-flash-latest";
 /** Modèles essayés dans l'ordre : le premier sain répond. */
-const MODEL_CHAIN = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+const MODEL_CHAIN = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest"];
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
 type GeminiPart =
@@ -372,6 +372,8 @@ async function callGemini(
   }
 
   let lastError: EngineError | null = null;
+  /** Erreur la plus parlante pour l'utilisateur (surcharge / quota), à privilégier. */
+  let meaningfulError: EngineError | null = null;
 
   for (const model of MODEL_CHAIN) {
     for (let attempt = 0; attempt < RETRY_DELAYS.length + 1; attempt++) {
@@ -380,9 +382,14 @@ async function callGemini(
       } catch (e) {
         const err = e as EngineError;
         lastError = err;
+        if (err.code === "ai_rate_limited" || err.code === "ai_overloaded") {
+          meaningfulError ??= err;
+        }
         // Erreurs définitives : inutile d'insister.
         if (err.code === "ai_unauthorized" || err.code === "ai_bad_request") throw err;
         if (err.code === "ai_bad_json") throw err;
+        // Modèle inconnu côté Google : on passe directement au suivant.
+        if (err.code === "ai_model_missing") break;
         const delay = RETRY_DELAYS[attempt];
         if (delay === undefined) break; // on passe au modèle suivant
         await sleep(delay);
@@ -390,7 +397,7 @@ async function callGemini(
     }
   }
 
-  throw lastError ?? new Error("Service IA indisponible.");
+  throw meaningfulError ?? lastError ?? new Error("Service IA indisponible.");
 }
 
 async function callOnce(
@@ -432,7 +439,11 @@ async function callOnce(
           ? "ai_unauthorized"
           : response.status === 400
             ? "ai_bad_request"
-            : "ai_unavailable";
+            : response.status === 404
+              ? "ai_model_missing"
+              : response.status === 503
+                ? "ai_overloaded"
+                : "ai_unavailable";
     err.debug = { task, model, prompt, raw: bodyText, durationMs, error: `HTTP ${response.status}` };
     throw err;
   }
